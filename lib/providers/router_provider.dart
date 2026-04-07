@@ -9,6 +9,7 @@ import '../screens/sessions_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/privacy_policy_screen.dart';
 import '../screens/insight_logs_screen.dart';
+import '../screens/students_screen.dart';
 
 // Define routes
 final routerProvider = Provider<GoRouter>((ref) {
@@ -46,6 +47,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/privacy',
         builder: (context, state) => const PrivacyPolicyScreen(),
+      ),
+      GoRoute(
+        path: '/students',
+        builder: (context, state) => const StudentsScreen(),
       ),
     ],
   );

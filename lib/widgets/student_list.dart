@@ -73,10 +73,34 @@ class _StudentListState extends State<StudentList> {
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final student = students[index];
-                    return _StudentTile(
-                      student: student,
-                      onEdit: () => _editStudent(context, student),
-                      onDelete: () => _deleteStudent(context, student),
+                    return Dismissible(
+                      key: ValueKey(student.id),
+                      direction: DismissDirection.endToStart,
+                      confirmDismiss: (_) =>
+                          _confirmDeleteStudent(context, student),
+                      onDismissed: (_) async {
+                        await widget.studentsBox.delete(student.id);
+                        if (mounted) {
+                          setState(() {});
+                        }
+                      },
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.errorContainer,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(
+                          Icons.delete_outline,
+                          color: Theme.of(context).colorScheme.onErrorContainer,
+                        ),
+                      ),
+                      child: _StudentTile(
+                        student: student,
+                        onEdit: () => _editStudent(context, student),
+                        onDelete: () => _deleteStudent(context, student),
+                      ),
                     );
                   },
                 ),
@@ -85,28 +109,39 @@ class _StudentListState extends State<StudentList> {
     );
   }
 
-  void _deleteStudent(BuildContext context, Student student) {
-    showDialog(
+  Future<bool> _confirmDeleteStudent(
+    BuildContext context,
+    Student student,
+  ) async {
+    final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Student'),
         content: Text('Remove ${student.name} from the local database?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Cancel'),
           ),
-          TextButton(
-            onPressed: () {
-              widget.studentsBox.delete(student.id);
-              if (mounted) setState(() {});
-              Navigator.of(context).pop();
-            },
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Delete'),
           ),
         ],
       ),
     );
+    return shouldDelete ?? false;
+  }
+
+  Future<void> _deleteStudent(BuildContext context, Student student) async {
+    final shouldDelete = await _confirmDeleteStudent(context, student);
+    if (!shouldDelete) {
+      return;
+    }
+    await widget.studentsBox.delete(student.id);
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _editStudent(BuildContext context, Student student) {

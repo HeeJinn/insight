@@ -610,8 +610,8 @@ class FaceProcessor {
     double threshold = 0.8,
     Iterable<List<double>> alternateEmbeddings = const [],
   }) async {
-    double minDistance = double.infinity;
-    String? bestStudentId;
+    const ambiguityMargin = 0.12;
+    final distancesByStudent = <String, double>{};
     final liveCandidates = <List<double>>[liveEmbedding, ...alternateEmbeddings];
 
     for (final student in students) {
@@ -636,14 +636,25 @@ class FaceProcessor {
         }
       }
 
-      if (studentBestDistance < minDistance) {
-        minDistance = studentBestDistance;
-        bestStudentId = student.id;
-      }
+      distancesByStudent[student.id] = studentBestDistance;
     }
 
-    if (minDistance < threshold) {
-      return bestStudentId;
+    if (distancesByStudent.isEmpty) {
+      return null;
+    }
+
+    final ranked = distancesByStudent.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+    final best = ranked.first;
+    final secondBestDistance = ranked.length > 1 ? ranked[1].value : double.infinity;
+
+    final passesThreshold = best.value < threshold;
+    final clearlySeparated =
+        secondBestDistance.isInfinite ||
+        (secondBestDistance - best.value) >= ambiguityMargin;
+
+    if (passesThreshold && clearlySeparated) {
+      return best.key;
     }
     return null;
   }

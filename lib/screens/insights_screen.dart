@@ -44,7 +44,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           data: (studentsBox) => attendanceAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, stack) => Center(child: Text('Error: $error')),
-            data: (attendanceBox) {
+            data: (attendanceBox) => StreamBuilder(
+              stream: attendanceBox.watch(),
+              builder: (context, _) {
               final idToName = <String, String>{
                 for (final Student s in studentsBox.values) s.id: s.name,
               };
@@ -230,7 +232,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   );
                 },
               );
-            },
+              },
+            ),
           ),
         ),
       ),

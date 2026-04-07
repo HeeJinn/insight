@@ -27,11 +27,6 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(() {
-      if (mounted) {
-        setState(() {});
-      }
-    });
   }
 
   @override
@@ -145,6 +140,12 @@ class _TopActionsBar extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               IconButton.filledTonal(
+                onPressed: () => context.push('/students'),
+                icon: const Icon(Icons.groups_outlined),
+                tooltip: 'Students',
+              ),
+              const SizedBox(width: 6),
+              IconButton.filledTonal(
                 onPressed: () => context.push('/settings'),
                 icon: const Icon(Icons.tune_outlined),
                 tooltip: 'Settings',
@@ -243,10 +244,16 @@ class _DashboardTabView extends StatelessWidget {
             ),
           ),
         ),
-        StudentList(studentsBox: studentsBox),
-        AttendanceLogs(
-          attendanceBox: attendanceBox,
-          studentsBox: studentsBox,
+        StreamBuilder(
+          stream: studentsBox.watch(),
+          builder: (context, _) => StudentList(studentsBox: studentsBox),
+        ),
+        StreamBuilder(
+          stream: attendanceBox.watch(),
+          builder: (context, _) => AttendanceLogs(
+            attendanceBox: attendanceBox,
+            studentsBox: studentsBox,
+          ),
         ),
       ],
     );

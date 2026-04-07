@@ -36,8 +36,12 @@ class KioskMode extends ConsumerWidget {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, stack) =>
                 _KioskStateMessage(message: 'Error: $error'),
-            data: (attendanceBox) => LayoutBuilder(
-              builder: (context, constraints) {
+            data: (attendanceBox) => StreamBuilder(
+              stream: studentsBox.watch(),
+              builder: (context, _) => StreamBuilder(
+                stream: attendanceBox.watch(),
+                builder: (context, _) => LayoutBuilder(
+                  builder: (context, constraints) {
                 final width = constraints.maxWidth;
                 final compact = AppBreakpoints.isCompact(width);
                 final contentWidth = AppBreakpoints.contentWidth(width);
@@ -97,7 +101,9 @@ class KioskMode extends ConsumerWidget {
                     ),
                   ),
                 );
-              },
+                  },
+                ),
+              ),
             ),
           ),
         ),
@@ -201,7 +207,7 @@ class _CompactKioskHeader extends StatelessWidget {
                 ),
               ),
               IconButton.filled(
-                onPressed: () => context.push('/admin'),
+                onPressed: () => context.go('/admin'),
                 style: IconButton.styleFrom(
                   backgroundColor:
                       Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -211,7 +217,7 @@ class _CompactKioskHeader extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               IconButton.filled(
-                onPressed: () => context.push('/settings'),
+                onPressed: () => context.go('/settings'),
                 style: IconButton.styleFrom(
                   backgroundColor:
                       Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -259,7 +265,7 @@ class _KioskActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final admin = ElevatedButton.icon(
-      onPressed: () => context.push('/admin'),
+      onPressed: () => context.go('/admin'),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
         foregroundColor: AppTheme.ink,
@@ -269,7 +275,7 @@ class _KioskActions extends StatelessWidget {
     );
 
     final settings = OutlinedButton.icon(
-      onPressed: () => context.push('/settings'),
+      onPressed: () => context.go('/settings'),
       style: OutlinedButton.styleFrom(
         backgroundColor: Colors.white.withValues(alpha: 0.12),
         foregroundColor: Colors.white,
@@ -295,7 +301,7 @@ class _KioskActions extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () => context.push('/settings'),
+            onPressed: () => context.go('/settings'),
             icon: const Icon(Icons.tune_outlined),
             label: const Text('Settings'),
           ),
@@ -349,7 +355,7 @@ class _KioskEmptyState extends StatelessWidget {
               SizedBox(
                 width: compact ? double.infinity : 260,
                 child: ElevatedButton.icon(
-                  onPressed: () => context.push('/admin'),
+                  onPressed: () => context.go('/admin'),
                   icon: const Icon(Icons.person_add_alt_1_outlined),
                   label: const Text('Open Registration'),
                 ),

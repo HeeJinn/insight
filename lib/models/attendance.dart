@@ -10,5 +10,16 @@ class Attendance extends HiveObject {
   @HiveField(1)
   DateTime timestamp;
 
-  Attendance({required this.studentId, required this.timestamp});
+  @HiveField(2)
+  String? sessionTitle;
+
+  @HiveField(3)
+  String? room;
+
+  Attendance({
+    required this.studentId,
+    required this.timestamp,
+    this.sessionTitle,
+    this.room,
+  });
 }

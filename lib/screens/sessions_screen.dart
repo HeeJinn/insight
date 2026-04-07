@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../models/session_entry.dart';
 import '../app_theme.dart';
+import '../providers/sessions_provider.dart';
 import '../widgets/app_chrome.dart';
 import '../widgets/responsive_utils.dart';
 
-class SessionsScreen extends StatelessWidget {
+class SessionsScreen extends ConsumerWidget {
   const SessionsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sessions = ref.watch(sessionsProvider);
     return Scaffold(
       appBar: AppBar(
         leading: BackButton(
@@ -43,15 +47,23 @@ class SessionsScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 18),
-                        ..._demoSessions.map(
-                          (session) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _SessionCard(
-                              session: session,
-                              compact: compact,
+                        if (sessions.isEmpty)
+                          const AppPanel(
+                            child: Text('No sessions yet. Tap + to add one.'),
+                          )
+                        else
+                          ...sessions.map(
+                            (session) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _SessionCard(
+                                session: session,
+                                compact: compact,
+                                onDelete: () => ref
+                                    .read(sessionsProvider.notifier)
+                                    .removeSession(session.id),
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -61,15 +73,125 @@ class SessionsScreen extends StatelessWidget {
           },
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddSessionDialog(context, ref),
+        icon: const Icon(Icons.add),
+        label: const Text('Add session'),
+      ),
+    );
+  }
+
+  Future<void> _showAddSessionDialog(BuildContext context, WidgetRef ref) async {
+    final titleCtrl = TextEditingController();
+    final roomCtrl = TextEditingController();
+    final expectedCtrl = TextEditingController(text: '0');
+    TimeOfDay? start;
+    TimeOfDay? end;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('New session'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleCtrl,
+                  decoration: const InputDecoration(labelText: 'Course / Session title'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: roomCtrl,
+                  decoration: const InputDecoration(labelText: 'Room'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: expectedCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Expected students'),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          final t = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay.now(),
+                          );
+                          if (t != null) setState(() => start = t);
+                        },
+                        child: Text(start == null ? 'Start' : start!.format(context)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          final t = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay.now(),
+                          );
+                          if (t != null) setState(() => end = t);
+                        },
+                        child: Text(end == null ? 'End' : end!.format(context)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (titleCtrl.text.trim().isEmpty ||
+                    roomCtrl.text.trim().isEmpty ||
+                    start == null ||
+                    end == null) {
+                  return;
+                }
+                final startM = start!.hour * 60 + start!.minute;
+                final endM = end!.hour * 60 + end!.minute;
+                if (endM <= startM) return;
+                ref.read(sessionsProvider.notifier).addSession(
+                      SessionEntry(
+                        id: DateTime.now().microsecondsSinceEpoch.toString(),
+                        title: titleCtrl.text.trim(),
+                        room: roomCtrl.text.trim(),
+                        startMinuteOfDay: startM,
+                        endMinuteOfDay: endM,
+                        expected: int.tryParse(expectedCtrl.text.trim()) ?? 0,
+                      ),
+                    );
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
 class _SessionCard extends StatelessWidget {
-  final _Session session;
+  final SessionEntry session;
   final bool compact;
+  final VoidCallback onDelete;
 
-  const _SessionCard({required this.session, required this.compact});
+  const _SessionCard({
+    required this.session,
+    required this.compact,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +213,7 @@ class _SessionCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(session.course, style: Theme.of(context).textTheme.titleLarge),
+                Text(session.title, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 6),
                 Text(session.room, style: Theme.of(context).textTheme.bodyMedium),
                 const SizedBox(height: 10),
@@ -100,7 +222,7 @@ class _SessionCard extends StatelessWidget {
                   runSpacing: 10,
                   children: [
                     AppPillTag(
-                      label: session.time,
+                      label: session.timeLabel,
                       icon: Icons.access_time_rounded,
                       backgroundColor: AppTheme.orangeSoft,
                       foregroundColor: AppTheme.orange,
@@ -116,49 +238,23 @@ class _SessionCard extends StatelessWidget {
               ],
             ),
           ),
-          if (!compact)
-            OutlinedButton.icon(
-              onPressed: () => context.push('/kiosk'),
-              icon: const Icon(Icons.camera_alt_outlined),
-              label: const Text('Start Kiosk'),
-            ),
+          Column(
+            children: [
+              if (!compact)
+                OutlinedButton.icon(
+                  onPressed: () => context.push('/kiosk'),
+                  icon: const Icon(Icons.camera_alt_outlined),
+                  label: const Text('Start Kiosk'),
+                ),
+              const SizedBox(height: 8),
+              IconButton.filledTonal(
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 }
-
-class _Session {
-  final String course;
-  final String room;
-  final String time;
-  final int expected;
-
-  const _Session({
-    required this.course,
-    required this.room,
-    required this.time,
-    required this.expected,
-  });
-}
-
-const _demoSessions = <_Session>[
-  _Session(
-    course: 'Software Engineering',
-    room: 'Room B-201',
-    time: '08:30 - 10:00',
-    expected: 42,
-  ),
-  _Session(
-    course: 'Computer Vision Lab',
-    room: 'Lab A-07',
-    time: '10:30 - 12:00',
-    expected: 28,
-  ),
-  _Session(
-    course: 'Data Structures',
-    room: 'Room C-109',
-    time: '13:00 - 14:30',
-    expected: 51,
-  ),
-];

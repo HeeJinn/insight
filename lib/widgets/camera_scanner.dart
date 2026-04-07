@@ -9,8 +9,10 @@ import 'package:image/image.dart' as img;
 import 'package:permission_handler/permission_handler.dart';
 import '../app_theme.dart';
 import '../models/attendance.dart';
+import '../models/session_entry.dart';
 import '../models/student.dart';
 import '../providers/settings_provider.dart';
+import '../providers/sessions_provider.dart';
 import '../services/face_processor.dart';
 import 'app_chrome.dart';
 import 'responsive_utils.dart';
@@ -29,19 +31,36 @@ class CameraScanner extends ConsumerStatefulWidget {
   ConsumerState<CameraScanner> createState() => _CameraScannerState();
 }
 
-class _CameraScannerState extends ConsumerState<CameraScanner> {
+class _CameraScannerState extends ConsumerState<CameraScanner>
+    with WidgetsBindingObserver {
   CameraController? _controller;
   FaceProcessor? _faceProcessor;
   String? _recognizedStudent;
   String _statusLabel = 'Waiting for camera access';
   bool _isProcessing = false;
+  bool _isStreaming = false;
   bool _cameraDenied = false;
   bool _initializationFailed = false;
+  DateTime _lastProcessedAt = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastRecognitionAt = DateTime.fromMillisecondsSinceEpoch(0);
+  final Duration _recognitionCooldown = const Duration(seconds: 2);
+  static const Duration _attendanceDedupeWindow = Duration(minutes: 1);
+  final Map<String, DateTime> _recentAttendanceByStudent = {};
+  static const Duration _scanInterval = Duration(milliseconds: 220);
+  Timer? _cooldownTicker;
+  int _cooldownSecondsLeft = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (!kIsWeb) {
+      for (final log in widget.attendanceBox.values) {
+        final previous = _recentAttendanceByStudent[log.studentId];
+        if (previous == null || log.timestamp.isAfter(previous)) {
+          _recentAttendanceByStudent[log.studentId] = log.timestamp;
+        }
+      }
       _faceProcessor = FaceProcessor();
       _requestPermissions();
     }
@@ -84,7 +103,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner> {
 
       final controller = CameraController(
         frontCamera,
-        ResolutionPreset.medium,
+        ResolutionPreset.low,
         enableAudio: false,
       );
 
@@ -115,14 +134,26 @@ class _CameraScannerState extends ConsumerState<CameraScanner> {
 
   void _startScanning() {
     final controller = _controller;
-    if (controller == null || widget.studentsBox.isEmpty) {
+    if (controller == null ||
+        widget.studentsBox.isEmpty ||
+        _isStreaming ||
+        !controller.value.isInitialized) {
       return;
     }
 
+    _isStreaming = true;
     controller.startImageStream((CameraImage image) async {
+      if (!mounted) {
+        return;
+      }
       if (_isProcessing) {
         return;
       }
+      final now = DateTime.now();
+      if (now.difference(_lastProcessedAt) < _scanInterval) {
+        return;
+      }
+      _lastProcessedAt = now;
 
       _isProcessing = true;
       try {
@@ -131,12 +162,20 @@ class _CameraScannerState extends ConsumerState<CameraScanner> {
           return;
         }
 
-        if (recognized != null && recognized != _recognizedStudent) {
+        if (recognized != null &&
+            recognized != _recognizedStudent &&
+            DateTime.now().difference(_lastRecognitionAt) > _recognitionCooldown) {
+          _lastRecognitionAt = DateTime.now();
+          final didLog = _logAttendanceIfNeeded(recognized);
+          final remaining = _remainingCooldownSeconds(recognized);
           setState(() {
             _recognizedStudent = recognized;
-            _statusLabel = 'Attendance logged';
+            _statusLabel = didLog
+                ? 'Attendance logged'
+                : 'Already logged recently. Ask student to step aside.';
+            _cooldownSecondsLeft = remaining;
           });
-          _logAttendance(recognized);
+          _startCooldownTicker(recognized);
           Future.delayed(const Duration(seconds: 3), () {
             if (mounted) {
               setState(() {
@@ -157,6 +196,20 @@ class _CameraScannerState extends ConsumerState<CameraScanner> {
     });
   }
 
+  Future<void> _stopScanning() async {
+    final controller = _controller;
+    if (controller == null) {
+      _isStreaming = false;
+      return;
+    }
+    if (!controller.value.isStreamingImages) {
+      _isStreaming = false;
+      return;
+    }
+    await controller.stopImageStream();
+    _isStreaming = false;
+  }
+
   Future<String?> _processImage(CameraImage image) async {
     final processor = _faceProcessor;
     final controller = _controller;
@@ -175,7 +228,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner> {
     final embedding = await processor.recognizeFace(cropped);
     final mirroredCrop = processor.flipImageHorizontally(img.Image.from(cropped));
     final mirroredEmbedding = await processor.recognizeFace(mirroredCrop);
-    final students = widget.studentsBox.values.toList();
+    final students = widget.studentsBox.values.toList(growable: false);
     return processor.recognizeStudent(
       students,
       embedding,
@@ -200,20 +253,84 @@ class _CameraScannerState extends ConsumerState<CameraScanner> {
     return (sensorOrientation - deviceRotation + 360) % 360;
   }
 
-  void _logAttendance(String studentId) {
+  bool _logAttendanceIfNeeded(String studentId) {
+    final now = DateTime.now();
+    final recent = _recentAttendanceByStudent[studentId];
+    if (recent != null && now.difference(recent) < _attendanceDedupeWindow) {
+      return false;
+    }
+
+    final nowMinute = now.hour * 60 + now.minute;
+    SessionEntry? activeSession;
+    for (final session in ref.read(sessionsProvider)) {
+      if (nowMinute >= session.startMinuteOfDay &&
+          nowMinute <= session.endMinuteOfDay) {
+        activeSession = session;
+        break;
+      }
+    }
+
     final attendance = Attendance(
       studentId: studentId,
-      timestamp: DateTime.now(),
+      timestamp: now,
+      sessionTitle: activeSession?.title,
+      room: activeSession?.room,
     );
     widget.attendanceBox.add(attendance);
+    _recentAttendanceByStudent[studentId] = now;
+    return true;
+  }
+
+  int _remainingCooldownSeconds(String studentId) {
+    final recent = _recentAttendanceByStudent[studentId];
+    if (recent == null) {
+      return 0;
+    }
+    final elapsed = DateTime.now().difference(recent);
+    final remaining = _attendanceDedupeWindow - elapsed;
+    if (remaining.isNegative) {
+      return 0;
+    }
+    return remaining.inSeconds;
+  }
+
+  void _startCooldownTicker(String studentId) {
+    _cooldownTicker?.cancel();
+    _cooldownTicker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final remaining = _remainingCooldownSeconds(studentId);
+      if (remaining <= 0) {
+        setState(() => _cooldownSecondsLeft = 0);
+        timer.cancel();
+        return;
+      }
+      setState(() => _cooldownSecondsLeft = remaining);
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (kIsWeb) {
+      return;
+    }
+    if (state == AppLifecycleState.resumed) {
+      _startScanning();
+      return;
+    }
+    unawaited(_stopScanning());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _cooldownTicker?.cancel();
     final controller = _controller;
     if (controller != null) {
       if (controller.value.isStreamingImages) {
-        unawaited(controller.stopImageStream());
+        unawaited(_stopScanning());
       }
       controller.dispose();
     }
@@ -371,6 +488,8 @@ class _CameraScannerState extends ConsumerState<CameraScanner> {
                         AppPillTag(
                           label: _recognizedStudent == null
                               ? 'Scanning live'
+                              : _cooldownSecondsLeft > 0
+                              ? 'Verified • lock ${_cooldownSecondsLeft}s'
                               : 'Attendance captured',
                           backgroundColor: _recognizedStudent == null
                               ? AppTheme.accentSoft
@@ -396,6 +515,9 @@ class _CameraScannerState extends ConsumerState<CameraScanner> {
                         Text(
                           _recognizedStudent == null
                               ? _statusLabel
+                              : _cooldownSecondsLeft > 0
+                              ? 'Attendance logged for $_recognizedStudent. '
+                                    'Next log in ${_cooldownSecondsLeft}s.'
                               : 'Attendance logged for $_recognizedStudent',
                           maxLines: compact ? 2 : 3,
                           overflow: TextOverflow.ellipsis,

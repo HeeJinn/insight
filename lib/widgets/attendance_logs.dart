@@ -36,6 +36,8 @@ class AttendanceLogs extends StatelessWidget {
                 studentName: student?.name ?? 'Unknown student',
                 studentId: log.studentId,
                 timestamp: log.timestamp.toLocal().toString().split('.').first,
+                sessionTitle: log.sessionTitle,
+                room: log.room,
               );
             },
           );
@@ -104,11 +106,15 @@ class _AttendanceTile extends StatelessWidget {
   final String studentName;
   final String studentId;
   final String timestamp;
+  final String? sessionTitle;
+  final String? room;
 
   const _AttendanceTile({
     required this.studentName,
     required this.studentId,
     required this.timestamp,
+    this.sessionTitle,
+    this.room,
   });
 
   @override
@@ -149,6 +155,14 @@ class _AttendanceTile extends StatelessWidget {
                       .bodySmall
                       ?.copyWith(color: AppTheme.muted),
                 ),
+                if ((sessionTitle ?? '').isNotEmpty || (room ?? '').isNotEmpty)
+                  Text(
+                    '${sessionTitle ?? 'Session'}${(room ?? '').isNotEmpty ? ' • ${room!}' : ''}',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: AppTheme.accentDark),
+                  ),
               ],
             ),
           ),

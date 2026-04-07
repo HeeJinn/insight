@@ -84,14 +84,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   AppPanel(
                     radius: 16,
                     padding: const EdgeInsets.all(12),
-                    color: AppTheme.surface,
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     child: Row(
                       children: [
                         Checkbox(
                           value: _acceptedPrivacy,
                           onChanged: (v) => setState(() => _acceptedPrivacy = v ?? false),
                         ),
-                        const Expanded(
+                        Expanded(
                           child: Text('I agree to the privacy policy and local data usage.'),
                         ),
                         TextButton(

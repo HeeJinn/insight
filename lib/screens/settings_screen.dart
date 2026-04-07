@@ -95,13 +95,18 @@ class SettingsScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                   Slider(
                     value: threshold,
-                    min: 0.30,
-                    max: 2.0,
+                    min: 0.35,
+                    max: 1.20,
                     divisions: 34,
                     label: threshold.toStringAsFixed(2),
                     onChanged: (value) {
                       ref.read(recognitionThresholdProvider.notifier).state =
                           value;
+                    },
+                    onChangeEnd: (value) {
+                      ref
+                          .read(settingsControllerProvider)
+                          .setRecognitionThreshold(value);
                     },
                   ),
                 ],

@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hive_ce/hive.dart';
 import '../app_theme.dart';
+import '../models/attendance.dart';
+import '../models/student.dart';
 import '../providers/app_state_provider.dart';
 import '../providers/hive_provider.dart';
 import '../widgets/app_chrome.dart';
@@ -80,8 +83,14 @@ class HomeScreen extends ConsumerWidget {
                       const SizedBox(height: 14),
                       _SummaryCard(
                         compact: compact,
-                        studentsAsync: studentsAsync,
-                        attendanceAsync: attendanceAsync,
+                        studentsBox: studentsAsync.maybeWhen(
+                          data: (box) => box,
+                          orElse: () => null,
+                        ),
+                        attendanceBox: attendanceAsync.maybeWhen(
+                          data: (box) => box,
+                          orElse: () => null,
+                        ),
                       ),
                       if (kIsWeb) ...[
                         const SizedBox(height: 14),
@@ -118,6 +127,11 @@ class HomeScreen extends ConsumerWidget {
                             label: 'Insights',
                             icon: Icons.query_stats_outlined,
                             onTap: () => context.push('/insights'),
+                          ),
+                          _QuickActionData(
+                            label: 'Students',
+                            icon: Icons.groups_outlined,
+                            onTap: () => context.push('/students'),
                           ),
                           _QuickActionData(
                             label: 'Sessions',
@@ -207,81 +221,91 @@ class _TopBar extends StatelessWidget {
 
 class _SummaryCard extends StatelessWidget {
   final bool compact;
-  final AsyncValue studentsAsync;
-  final AsyncValue attendanceAsync;
+  final Box<Student>? studentsBox;
+  final Box<Attendance>? attendanceBox;
 
   const _SummaryCard({
     required this.compact,
-    required this.studentsAsync,
-    required this.attendanceAsync,
+    required this.studentsBox,
+    required this.attendanceBox,
   });
 
   @override
   Widget build(BuildContext context) {
-    final studentsCount = studentsAsync.maybeWhen(
-      data: (box) => (box as dynamic).length as int,
-      orElse: () => null,
-    );
-    final logsCount = attendanceAsync.maybeWhen(
-      data: (box) => (box as dynamic).length as int,
-      orElse: () => null,
-    );
+    final students = studentsBox;
+    final attendance = attendanceBox;
+    if (students == null || attendance == null) {
+      return const AppPanel(
+        radius: 18,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
 
-    return AppPanel(
-      radius: 18,
-      padding: EdgeInsets.all(compact ? 16 : 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppTheme.accentSoft,
-                  borderRadius: BorderRadius.circular(14),
+    return StreamBuilder(
+      stream: students.watch(),
+      builder: (context, _) => StreamBuilder(
+        stream: attendance.watch(),
+        builder: (context, _) {
+          final studentsCount = students.length;
+          final logsCount = attendance.length;
+          return AppPanel(
+            radius: 18,
+            padding: EdgeInsets.all(compact ? 16 : 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentSoft,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(Icons.verified_outlined, color: AppTheme.accentDark),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Ready to scan',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    AppPillTag(
+                      label: '$studentsCount students',
+                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      foregroundColor: AppTheme.muted,
+                    ),
+                  ],
                 ),
-                child: const Icon(Icons.verified_outlined, color: AppTheme.accentDark),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Ready to scan',
-                  style: Theme.of(context).textTheme.titleLarge,
+                const SizedBox(height: 12),
+                Text(
+                  'Open kiosk mode to record attendance offline.',
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
-              ),
-              AppPillTag(
-                label: studentsCount == null ? 'Loading' : '$studentsCount students',
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                foregroundColor: AppTheme.muted,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Open kiosk mode to record attendance offline.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: kIsWeb ? null : () => context.push('/kiosk'),
-                  child: const Text('Start kiosk'),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: kIsWeb ? null : () => context.push('/kiosk'),
+                        child: const Text('Start kiosk'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => context.push('/admin'),
+                        child: Text('Admin • $logsCount logs'),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => context.push('/admin'),
-                  child: Text(logsCount == null ? 'Admin' : 'Admin • $logsCount logs'),
-                ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          );
+        },
       ),
     );
   }

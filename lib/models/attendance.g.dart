@@ -19,17 +19,23 @@ class AttendanceAdapter extends TypeAdapter<Attendance> {
     return Attendance(
       studentId: fields[0] as String,
       timestamp: fields[1] as DateTime,
+      sessionTitle: fields[2] as String?,
+      room: fields[3] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Attendance obj) {
     writer
-      ..writeByte(2)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.studentId)
       ..writeByte(1)
-      ..write(obj.timestamp);
+      ..write(obj.timestamp)
+      ..writeByte(2)
+      ..write(obj.sessionTitle)
+      ..writeByte(3)
+      ..write(obj.room);
   }
 
   @override

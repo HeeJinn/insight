@@ -37,7 +37,9 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
           data: (studentsBox) => attendanceAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(child: Text('Error: $e')),
-            data: (attendanceBox) {
+            data: (attendanceBox) => StreamBuilder(
+              stream: attendanceBox.watch(),
+              builder: (context, _) {
               final idToName = <String, String>{
                 for (final Student s in studentsBox.values) s.id: s.name,
               };
@@ -144,6 +146,18 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                                                   color: AppTheme.muted,
                                                 ),
                                           ),
+                                          if ((item.sessionTitle ?? '').isNotEmpty ||
+                                              (item.room ?? '').isNotEmpty)
+                                            Text(
+                                              '${item.sessionTitle ?? 'Session'}'
+                                              '${(item.room ?? '').isNotEmpty ? ' • ${item.room!}' : ''}',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    color: AppTheme.accentDark,
+                                                  ),
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -174,7 +188,8 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                   ),
                 ],
               );
-            },
+              },
+            ),
           ),
         ),
       ),
