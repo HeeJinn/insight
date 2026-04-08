@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:io';
+import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
@@ -36,21 +39,57 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    if (_photos.length >= 5) {
+    if (_photos.length >= 5 || _isProcessing) {
       return;
     }
 
-    final image = await _picker.pickImage(
-      source: source,
-      imageQuality: 90,
-      preferredCameraDevice: CameraDevice.front,
-    );
-    if (image != null && mounted) {
+    try {
+      if (source == ImageSource.camera &&
+          defaultTargetPlatform == TargetPlatform.windows) {
+        final captured = await _showWindowsCaptureDialog();
+        if (captured != null && mounted) {
+          setState(() {
+            _photos.add(captured);
+            _feedbackIsError = false;
+            _feedbackMessage = null;
+          });
+        }
+        return;
+      }
+
+      final image = await _picker.pickImage(
+        source: source,
+        imageQuality: 90,
+        preferredCameraDevice: CameraDevice.front,
+      );
+      if (image != null && mounted) {
+        setState(() {
+          _photos.add(File(image.path));
+          _feedbackIsError = false;
+          _feedbackMessage = null;
+        });
+      }
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
       setState(() {
-        _photos.add(File(image.path));
-        _feedbackMessage = null;
+        _feedbackIsError = true;
+        _feedbackMessage = 'Unable to capture a photo right now. Details: $e';
       });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Capture failed: $e')));
     }
+  }
+
+  Future<File?> _showWindowsCaptureDialog() {
+    return showDialog<File>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const _WindowsPhotoCaptureDialog(),
+    );
   }
 
   Future<void> _registerStudent(Box<Student> studentsBox) async {
@@ -475,6 +514,205 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _WindowsPhotoCaptureDialog extends StatefulWidget {
+  const _WindowsPhotoCaptureDialog();
+
+  @override
+  State<_WindowsPhotoCaptureDialog> createState() =>
+      _WindowsPhotoCaptureDialogState();
+}
+
+class _WindowsPhotoCaptureDialogState
+    extends State<_WindowsPhotoCaptureDialog> {
+  CameraController? _controller;
+  bool _isInitializing = true;
+  bool _isCapturing = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_initializeCamera());
+  }
+
+  Future<void> _initializeCamera() async {
+    if (mounted) {
+      setState(() {
+        _isInitializing = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        throw StateError('No camera was found on this device.');
+      }
+
+      final preferred = cameras.firstWhere(
+        (camera) => camera.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
+
+      final controller = CameraController(
+        preferred,
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
+      await controller.initialize();
+
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+
+      final previousController = _controller;
+      setState(() {
+        _controller = controller;
+        _isInitializing = false;
+        _errorMessage = null;
+      });
+      await previousController?.dispose();
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isInitializing = false;
+        _errorMessage = 'Camera preview could not start. Details: $e';
+      });
+    }
+  }
+
+  Future<void> _capturePhoto() async {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized || _isCapturing) {
+      return;
+    }
+
+    try {
+      setState(() => _isCapturing = true);
+      final photo = await controller.takePicture();
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(File(photo.path));
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isCapturing = false;
+        _errorMessage = 'Photo capture failed. Details: $e';
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = _controller;
+
+    return Dialog(
+      insetPadding: const EdgeInsets.all(24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 860, maxHeight: 660),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Capture Photo',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Use the built-in camera preview to take a new registration photo on Windows.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 18),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: ColoredBox(
+                    color: Colors.black,
+                    child: Center(
+                      child: _isInitializing
+                          ? const CircularProgressIndicator()
+                          : _errorMessage != null
+                          ? Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                _errorMessage!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            )
+                          : preview == null || !preview.value.isInitialized
+                          ? const Text(
+                              'Camera preview unavailable.',
+                              style: TextStyle(color: Colors.white),
+                            )
+                          : AspectRatio(
+                              aspectRatio: preview.value.aspectRatio,
+                              child: CameraPreview(preview),
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _isCapturing
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _isCapturing ? null : _initializeCamera,
+                    icon: const Icon(Icons.refresh_outlined),
+                    label: const Text('Retry Camera'),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed:
+                        _isInitializing || _errorMessage != null || _isCapturing
+                        ? null
+                        : _capturePhoto,
+                    icon: _isCapturing
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.camera_alt_outlined),
+                    label: Text(
+                      _isCapturing ? 'Capturing...' : 'Use This Photo',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

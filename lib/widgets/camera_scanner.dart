@@ -13,6 +13,7 @@ import '../models/session_entry.dart';
 import '../models/student.dart';
 import '../providers/settings_provider.dart';
 import '../providers/sessions_provider.dart';
+import '../services/captured_file_cleanup.dart';
 import '../services/face_processor.dart';
 import 'app_chrome.dart';
 import 'responsive_utils.dart';
@@ -46,9 +47,19 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
   final Duration _recognitionCooldown = const Duration(seconds: 2);
   static const Duration _attendanceDedupeWindow = Duration(minutes: 1);
   final Map<String, DateTime> _recentAttendanceByStudent = {};
-  static const Duration _scanInterval = Duration(milliseconds: 220);
+  static const Duration _streamScanInterval = Duration(milliseconds: 220);
+  static const Duration _snapshotScanInterval = Duration(milliseconds: 1150);
   Timer? _cooldownTicker;
+  Timer? _snapshotTicker;
   int _cooldownSecondsLeft = 0;
+
+  bool get _usesSnapshotScanning =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+
+  bool get _requiresRuntimeCameraPermission =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   @override
   void initState() {
@@ -62,7 +73,11 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
         }
       }
       _faceProcessor = FaceProcessor();
-      _requestPermissions();
+      if (_requiresRuntimeCameraPermission) {
+        unawaited(_requestPermissions());
+      } else {
+        unawaited(_initializeCamera());
+      }
     }
   }
 
@@ -103,7 +118,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
 
       final controller = CameraController(
         frontCamera,
-        ResolutionPreset.low,
+        _usesSnapshotScanning ? ResolutionPreset.medium : ResolutionPreset.low,
         enableAudio: false,
       );
 
@@ -116,7 +131,9 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       setState(() {
         _controller = controller;
         _initializationFailed = false;
-        _statusLabel = 'Center your face in the frame';
+        _statusLabel = _usesSnapshotScanning
+            ? 'Align your face for a quick snapshot'
+            : 'Center your face in the frame';
       });
 
       _startScanning();
@@ -133,6 +150,11 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
   }
 
   void _startScanning() {
+    if (_usesSnapshotScanning) {
+      _startSnapshotScanning();
+      return;
+    }
+
     final controller = _controller;
     if (controller == null ||
         widget.studentsBox.isEmpty ||
@@ -150,7 +172,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
         return;
       }
       final now = DateTime.now();
-      if (now.difference(_lastProcessedAt) < _scanInterval) {
+      if (now.difference(_lastProcessedAt) < _streamScanInterval) {
         return;
       }
       _lastProcessedAt = now;
@@ -162,29 +184,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
           return;
         }
 
-        if (recognized != null &&
-            recognized != _recognizedStudent &&
-            DateTime.now().difference(_lastRecognitionAt) > _recognitionCooldown) {
-          _lastRecognitionAt = DateTime.now();
-          final didLog = _logAttendanceIfNeeded(recognized);
-          final remaining = _remainingCooldownSeconds(recognized);
-          setState(() {
-            _recognizedStudent = recognized;
-            _statusLabel = didLog
-                ? 'Attendance logged'
-                : 'Already logged recently. Ask student to step aside.';
-            _cooldownSecondsLeft = remaining;
-          });
-          _startCooldownTicker(recognized);
-          Future.delayed(const Duration(seconds: 3), () {
-            if (mounted) {
-              setState(() {
-                _recognizedStudent = null;
-                _statusLabel = 'Center your face in the frame';
-              });
-            }
-          });
-        }
+        _handleRecognition(recognized);
       } catch (e) {
         debugPrint('Error processing image: $e');
         if (mounted) {
@@ -196,7 +196,59 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     });
   }
 
+  void _startSnapshotScanning() {
+    final controller = _controller;
+    if (controller == null ||
+        widget.studentsBox.isEmpty ||
+        _isStreaming ||
+        !controller.value.isInitialized) {
+      return;
+    }
+
+    _snapshotTicker?.cancel();
+    _isStreaming = true;
+    _snapshotTicker = Timer.periodic(_snapshotScanInterval, (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        _isStreaming = false;
+        return;
+      }
+      if (_isProcessing || controller.value.isTakingPicture) {
+        return;
+      }
+
+      final now = DateTime.now();
+      if (now.difference(_lastProcessedAt) < _snapshotScanInterval) {
+        return;
+      }
+      _lastProcessedAt = now;
+
+      _isProcessing = true;
+      try {
+        final recognized = await _processStillCapture();
+        if (!mounted) {
+          return;
+        }
+        _handleRecognition(recognized);
+      } catch (e) {
+        debugPrint('Error processing snapshot capture: $e');
+        if (mounted) {
+          setState(() => _statusLabel = 'Snapshot scan paused, trying again');
+        }
+      } finally {
+        _isProcessing = false;
+      }
+    });
+  }
+
   Future<void> _stopScanning() async {
+    _snapshotTicker?.cancel();
+    _snapshotTicker = null;
+    if (_usesSnapshotScanning) {
+      _isStreaming = false;
+      return;
+    }
+
     final controller = _controller;
     if (controller == null) {
       _isStreaming = false;
@@ -226,7 +278,9 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     final bbox = await processor.detectFace(rotatedImage);
     final cropped = processor.cropFace(rotatedImage, bbox);
     final embedding = await processor.recognizeFace(cropped);
-    final mirroredCrop = processor.flipImageHorizontally(img.Image.from(cropped));
+    final mirroredCrop = processor.flipImageHorizontally(
+      img.Image.from(cropped),
+    );
     final mirroredEmbedding = await processor.recognizeFace(mirroredCrop);
     final students = widget.studentsBox.values.toList(growable: false);
     return processor.recognizeStudent(
@@ -235,6 +289,41 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       threshold: threshold,
       alternateEmbeddings: [mirroredEmbedding],
     );
+  }
+
+  Future<String?> _processStillCapture() async {
+    final processor = _faceProcessor;
+    final controller = _controller;
+    if (processor == null || controller == null) {
+      return null;
+    }
+
+    final threshold = ref.read(recognitionThresholdProvider);
+    final picture = await controller.takePicture();
+    try {
+      final bytes = await picture.readAsBytes();
+      final capturedImage = img.decodeImage(bytes);
+      if (capturedImage == null) {
+        throw StateError('The captured snapshot could not be decoded.');
+      }
+
+      final bbox = await processor.detectFace(capturedImage);
+      final cropped = processor.cropFace(capturedImage, bbox);
+      final embedding = await processor.recognizeFace(cropped);
+      final mirroredCrop = processor.flipImageHorizontally(
+        img.Image.from(cropped),
+      );
+      final mirroredEmbedding = await processor.recognizeFace(mirroredCrop);
+      final students = widget.studentsBox.values.toList(growable: false);
+      return processor.recognizeStudent(
+        students,
+        embedding,
+        threshold: threshold,
+        alternateEmbeddings: [mirroredEmbedding],
+      );
+    } finally {
+      await deleteCapturedFile(picture.path);
+    }
   }
 
   int _rotationCompensation(CameraController controller) {
@@ -294,6 +383,36 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     return remaining.inSeconds;
   }
 
+  void _handleRecognition(String? recognized) {
+    if (recognized == null ||
+        recognized == _recognizedStudent ||
+        DateTime.now().difference(_lastRecognitionAt) <= _recognitionCooldown) {
+      return;
+    }
+
+    _lastRecognitionAt = DateTime.now();
+    final didLog = _logAttendanceIfNeeded(recognized);
+    final remaining = _remainingCooldownSeconds(recognized);
+    setState(() {
+      _recognizedStudent = recognized;
+      _statusLabel = didLog
+          ? 'Attendance logged'
+          : 'Already logged recently. Ask student to step aside.';
+      _cooldownSecondsLeft = remaining;
+    });
+    _startCooldownTicker(recognized);
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _recognizedStudent = null;
+          _statusLabel = _usesSnapshotScanning
+              ? 'Align your face for a quick snapshot'
+              : 'Center your face in the frame';
+        });
+      }
+    });
+  }
+
   void _startCooldownTicker(String studentId) {
     _cooldownTicker?.cancel();
     _cooldownTicker = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -327,9 +446,10 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _cooldownTicker?.cancel();
+    _snapshotTicker?.cancel();
     final controller = _controller;
     if (controller != null) {
-      if (controller.value.isStreamingImages) {
+      if (_usesSnapshotScanning || controller.value.isStreamingImages) {
         unawaited(_stopScanning());
       }
       controller.dispose();
@@ -487,7 +607,9 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
                       children: [
                         AppPillTag(
                           label: _recognizedStudent == null
-                              ? 'Scanning live'
+                              ? _usesSnapshotScanning
+                                    ? 'Scanning snapshots'
+                                    : 'Scanning live'
                               : _cooldownSecondsLeft > 0
                               ? 'Verified • lock ${_cooldownSecondsLeft}s'
                               : 'Attendance captured',
@@ -506,7 +628,9 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
                         if (!compact) ...[
                           Text(
                             _recognizedStudent == null
-                                ? 'Live Scan'
+                                ? _usesSnapshotScanning
+                                      ? 'Snapshot Scan'
+                                      : 'Live Scan'
                                 : 'Attendance Captured',
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
