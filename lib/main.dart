@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_theme.dart';
+import 'providers/app_state_provider.dart';
 import 'providers/router_provider.dart';
 import 'providers/settings_provider.dart';
 
@@ -15,9 +16,10 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     final settingsBootstrap = ref.watch(settingsBootstrapProvider);
+    final appBootstrap = ref.watch(appStateBootstrapProvider);
     final themeMode = ref.watch(effectiveThemeModeProvider);
 
-    if (settingsBootstrap.isLoading) {
+    if (settingsBootstrap.isLoading || appBootstrap.isLoading) {
       return const MaterialApp(
         debugShowCheckedModeBanner: false,
         home: Scaffold(body: Center(child: CircularProgressIndicator())),

@@ -193,90 +193,82 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
         final wide = width >= 920;
         final progress = _photos.length / 5;
 
-        return AppPanel(
-          padding: EdgeInsets.all(compact ? 20 : 24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AppSectionHeading(
-                  eyebrow: 'Enrollment flow',
-                  title: 'Student Registration',
-                  subtitle:
-                      'Create a student profile with guided face capture and save it locally for kiosk recognition.',
-                  compact: compact,
-                  trailing: AppPillTag(
-                    label: '${_photos.length}/5 photos',
-                    backgroundColor: AppTheme.blueSoft,
-                    foregroundColor: AppTheme.blue,
-                  ),
-                ),
+        return Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _RegistrationHeroHeader(
+                compact: compact,
+                photoCount: _photos.length,
+              ),
+              SizedBox(height: compact ? 10 : 14),
+              if (wide)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildDetailsCard(context, wide)),
+                    const SizedBox(width: 24),
+                    Expanded(child: _buildCaptureCard(context, progress)),
+                  ],
+                )
+              else ...[
+                _buildDetailsCard(context, wide),
                 const SizedBox(height: 20),
-                if (wide)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildDetailsCard(context, wide)),
-                      const SizedBox(width: 18),
-                      Expanded(child: _buildCaptureCard(context, progress)),
-                    ],
-                  )
-                else ...[
-                  _buildDetailsCard(context, wide),
-                  const SizedBox(height: 16),
-                  _buildCaptureCard(context, progress),
-                ],
-                if (_feedbackMessage != null) ...[
-                  const SizedBox(height: 18),
-                  AppPanel(
-                    radius: 24,
+                _buildCaptureCard(context, progress),
+              ],
+              if (_feedbackMessage != null) ...[
+                const SizedBox(height: 18),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
                     color: _feedbackIsError
-                        ? AppTheme.dangerSoft
-                        : AppTheme.accentSoft,
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      _feedbackMessage!,
-                      style: TextStyle(
-                        color: _feedbackIsError
-                            ? AppTheme.danger
-                            : AppTheme.accentDark,
-                        fontWeight: FontWeight.w700,
-                        height: 1.45,
-                      ),
-                    ),
+                        ? Theme.of(context).colorScheme.errorContainer
+                        : Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ],
-                const SizedBox(height: 20),
-                studentsAsync.when(
-                  loading: () => const CircularProgressIndicator(),
-                  error: (error, stack) => Text('Error: $error'),
-                  data: (studentsBox) => SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _isProcessing
-                          ? null
-                          : () => _registerStudent(studentsBox),
-                      icon: _isProcessing
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.person_add_alt_1_outlined),
-                      label: Text(
-                        _isProcessing
-                            ? 'Creating biometric profile...'
-                            : 'Register Student',
-                      ),
+                  child: Text(
+                    _feedbackMessage!,
+                    style: TextStyle(
+                      color: _feedbackIsError
+                          ? Theme.of(context).colorScheme.onErrorContainer
+                          : Theme.of(context).colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w700,
+                      height: 1.45,
                     ),
                   ),
                 ),
               ],
-            ),
+              const SizedBox(height: 20),
+              studentsAsync.when(
+                loading: () => const CircularProgressIndicator(),
+                error: (error, stack) => Text('Error: $error'),
+                data: (studentsBox) => SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _isProcessing
+                        ? null
+                        : () => _registerStudent(studentsBox),
+                    icon: _isProcessing
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.person_add_alt_1_outlined),
+                    label: Text(
+                      _isProcessing
+                          ? 'Creating biometric profile...'
+                          : 'Register Student',
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -288,6 +280,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
       TextFormField(
         controller: _idController,
         keyboardType: TextInputType.number,
+        onTapOutside: (_) => FocusScope.of(context).unfocus(),
         decoration: const InputDecoration(
           labelText: 'Student ID',
           hintText: 'Enter school ID number',
@@ -296,6 +289,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
       ),
       TextFormField(
         controller: _nameController,
+        onTapOutside: (_) => FocusScope.of(context).unfocus(),
         decoration: const InputDecoration(
           labelText: 'Student name',
           hintText: 'Enter full name',
@@ -309,6 +303,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
       subtitle:
           'Add the official student information before generating the face profile.',
       accent: AppTheme.blue,
+      showDivider: true,
       child: wide
           ? Row(
               children: [
@@ -318,7 +313,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
               ],
             )
           : Column(
-              children: [fields[0], const SizedBox(height: 14), fields[1]],
+              children: [fields[0], const SizedBox(height: 12), fields[1]],
             ),
     );
   }
@@ -329,15 +324,15 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
       subtitle:
           'Capture five clear samples from slightly different angles for a stronger local match profile.',
       accent: AppTheme.orange,
+      showDivider: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              gradient: AppTheme.orangeGradient,
-              borderRadius: BorderRadius.circular(26),
-              boxShadow: AppTheme.panelShadow,
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,15 +342,20 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
                     Expanded(
                       child: Text(
                         'Capture progress',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.titleMedium?.copyWith(color: Colors.white),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSecondaryContainer,
+                            ),
                       ),
                     ),
                     Text(
                       '${(progress * 100).round()}%',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSecondaryContainer,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -368,8 +368,8 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
                     minHeight: 10,
                     value: progress,
                     backgroundColor: Colors.white.withValues(alpha: 0.25),
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      Colors.white,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).colorScheme.onSecondaryContainer,
                     ),
                   ),
                 ),
@@ -378,15 +378,10 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    OutlinedButton.icon(
+                    FilledButton.tonalIcon(
                       onPressed: _photos.length < 5 && !_isProcessing
                           ? () => _pickImage(ImageSource.camera)
                           : null,
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppTheme.ink,
-                        side: BorderSide.none,
-                      ),
                       icon: const Icon(Icons.camera_alt_outlined),
                       label: const Text('Capture Photo'),
                     ),
@@ -395,10 +390,15 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
                           ? () => _pickImage(ImageSource.gallery)
                           : null,
                       style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white.withValues(alpha: 0.18),
-                        foregroundColor: Colors.white,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.surface.withValues(alpha: 0.4),
+                        foregroundColor: Theme.of(context).colorScheme.onSurface,
                         side: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.22),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .outlineVariant
+                              .withValues(alpha: 0.24),
                         ),
                       ),
                       icon: const Icon(Icons.photo_library_outlined),
@@ -408,10 +408,15 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
                       OutlinedButton.icon(
                         onPressed: _isProcessing ? null : _clearPhotos,
                         style: OutlinedButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.18),
-                          foregroundColor: Colors.white,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surface.withValues(alpha: 0.4),
+                          foregroundColor: Theme.of(context).colorScheme.onSurface,
                           side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.22),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outlineVariant
+                                .withValues(alpha: 0.24),
                           ),
                         ),
                         icon: const Icon(Icons.refresh_outlined),
@@ -434,7 +439,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
                   return Stack(
                     children: [
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(16),
                         child: Image.file(
                           _photos[index],
                           width: 102,
@@ -483,24 +488,21 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
               ),
             ),
           const SizedBox(height: 16),
-          AppPanel(
-            radius: 24,
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            padding: const EdgeInsets.all(16),
-            elevated: false,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(Icons.tips_and_updates_outlined),
+                Icon(
+                  Icons.tips_and_updates_outlined,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Best results come from one front-facing photo, two slight side angles, and two neutral expressions in even lighting.',
@@ -723,53 +725,98 @@ class _RegistrationSection extends StatelessWidget {
   final String subtitle;
   final Color accent;
   final Widget child;
+  final bool showDivider;
 
   const _RegistrationSection({
     required this.title,
     required this.subtitle,
     required this.accent,
     required this.child,
+    required this.showDivider,
   });
 
   @override
   Widget build(BuildContext context) {
-    return AppPanel(
-      radius: 28,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(Icons.widgets_outlined, color: accent),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
+              child: Icon(Icons.widgets_outlined, color: accent, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        child,
+        if (showDivider) ...[
+          const SizedBox(height: 16),
+          Divider(color: Theme.of(context).colorScheme.outlineVariant),
+        ],
+      ],
+    );
+  }
+}
+
+class _RegistrationHeroHeader extends StatelessWidget {
+  final bool compact;
+  final int photoCount;
+
+  const _RegistrationHeroHeader({required this.compact, required this.photoCount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppPillTag(
+                label: 'Enrollment flow',
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                foregroundColor: AppTheme.muted,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Student Registration',
+                style: compact
+                    ? Theme.of(context).textTheme.headlineMedium
+                    : Theme.of(context).textTheme.headlineLarge,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Create a student profile with guided face capture for local kiosk recognition.',
+                style: Theme.of(context).textTheme.bodyLarge,
               ),
             ],
           ),
-          const SizedBox(height: 18),
-          child,
-        ],
-      ),
+        ),
+        const SizedBox(width: 12),
+        AppPillTag(
+          label: '$photoCount/5 photos',
+          backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+          foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
+        ),
+      ],
     );
   }
 }

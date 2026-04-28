@@ -33,4 +33,31 @@ class AppBreakpoints {
     }
     return const EdgeInsets.fromLTRB(16, 16, 16, 24);
   }
+
+  static double navAwareBottomInset(BuildContext context, {double extra = 16}) {
+    return MediaQuery.viewPaddingOf(context).bottom +
+        kBottomNavigationBarHeight +
+        extra;
+  }
+}
+
+class AppSpacing {
+  static const double xxs = 4;
+  static const double xs = 8;
+  static const double sm = 12;
+  static const double md = 16;
+  static const double lg = 24;
+  static const double xl = 32;
+
+  static EdgeInsets pageSection({required bool compact}) {
+    return EdgeInsets.all(compact ? sm : md);
+  }
+
+  static EdgeInsets panelPadding({required bool compact}) {
+    return EdgeInsets.all(compact ? md : lg);
+  }
+
+  static double sectionGap(bool compact) => compact ? sm : md;
+
+  static double contentGap(bool compact) => compact ? xs : sm;
 }

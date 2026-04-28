@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hive_ce/hive.dart';
-import '../app_theme.dart';
 import '../models/student.dart';
-import 'app_chrome.dart';
 
 class StudentList extends StatefulWidget {
   final Box<Student> studentsBox;
@@ -15,97 +14,247 @@ class StudentList extends StatefulWidget {
 
 class _StudentListState extends State<StudentList> {
   String query = '';
-  bool onlyComplete = false;
+  _CompletionFilter completionFilter = _CompletionFilter.all;
+  _SortMode sortMode = _SortMode.nameAsc;
 
   @override
   Widget build(BuildContext context) {
-    final students = widget.studentsBox.values
-        .where((s) {
-          final q = query.trim().toLowerCase();
-          final matchesQuery = q.isEmpty ||
-              s.name.toLowerCase().contains(q) ||
-              s.id.toLowerCase().contains(q);
-          final complete = !onlyComplete || s.embeddings.length >= 5;
-          return matchesQuery && complete;
-        })
-        .toList()
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SearchBar(
-          hintText: 'Search student name or ID',
-          leading: const Icon(Icons.search),
-          onChanged: (value) => setState(() => query = value),
-          backgroundColor: WidgetStatePropertyAll(
-            Theme.of(context).colorScheme.surfaceContainerHighest,
+    final scheme = Theme.of(context).colorScheme;
+    final students = widget.studentsBox.values.where((s) {
+      final q = query.trim().toLowerCase();
+      final matchesQuery =
+          q.isEmpty ||
+          s.name.toLowerCase().contains(q) ||
+          s.id.toLowerCase().contains(q);
+      final isComplete = s.embeddings.length >= 5;
+      final matchesCompletion = switch (completionFilter) {
+        _CompletionFilter.all => true,
+        _CompletionFilter.completeOnly => isComplete,
+        _CompletionFilter.incompleteOnly => !isComplete,
+      };
+      return matchesQuery && matchesCompletion;
+    }).toList()
+      ..sort((a, b) {
+        return switch (sortMode) {
+          _SortMode.nameAsc => a.name.toLowerCase().compareTo(
+            b.name.toLowerCase(),
           ),
-          elevation: const WidgetStatePropertyAll(0),
-          side: const WidgetStatePropertyAll(BorderSide(color: AppTheme.border)),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            FilterChip(
-              label: const Text('Complete profiles only'),
-              selected: onlyComplete,
-              onSelected: (v) => setState(() => onlyComplete = v),
+          _SortMode.nameDesc => b.name.toLowerCase().compareTo(
+            a.name.toLowerCase(),
+          ),
+          _SortMode.idAsc => a.id.toLowerCase().compareTo(b.id.toLowerCase()),
+          _SortMode.idDesc => b.id.toLowerCase().compareTo(a.id.toLowerCase()),
+        };
+      });
+
+    final hasActiveFilter =
+        completionFilter != _CompletionFilter.all ||
+        sortMode != _SortMode.nameAsc;
+
+    return CustomScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      slivers: [
+        SliverToBoxAdapter(
+          child: SearchBar(
+            hintText: 'Search student name or ID',
+            leading: const Icon(Icons.search),
+            onChanged: (value) => setState(() => query = value),
+            backgroundColor: WidgetStatePropertyAll(
+              Theme.of(context).colorScheme.surfaceContainerHighest,
             ),
-            const Spacer(),
-            AppPillTag(
-              label: '${students.length} total',
-              backgroundColor: AppTheme.orangeSoft,
-              foregroundColor: AppTheme.orange,
-            ),
-          ],
+            elevation: const WidgetStatePropertyAll(0),
+          ),
         ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: students.isEmpty
-              ? const _EmptyState(
-                  title: 'No students registered yet',
-                  subtitle:
-                      'Add a student from the Register tab to create the first biometric profile.',
-                )
-              : ListView.separated(
-                  itemCount: students.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final student = students[index];
-                    return Dismissible(
-                      key: ValueKey(student.id),
-                      direction: DismissDirection.endToStart,
-                      confirmDismiss: (_) =>
-                          _confirmDeleteStudent(context, student),
-                      onDismissed: (_) async {
-                        await widget.studentsBox.delete(student.id);
-                        if (mounted) {
-                          setState(() {});
-                        }
-                      },
-                      background: Container(
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.errorContainer,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Icon(
-                          Icons.delete_outline,
-                          color: Theme.of(context).colorScheme.onErrorContainer,
-                        ),
-                      ),
-                      child: _StudentTile(
-                        student: student,
-                        onEdit: () => _editStudent(context, student),
-                        onDelete: () => _deleteStudent(context, student),
-                      ),
-                    );
+        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+        SliverToBoxAdapter(
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => _openFilterSheet(context),
+                icon: Badge(
+                  isLabelVisible: hasActiveFilter,
+                  smallSize: 7,
+                  child: const Icon(Icons.tune_outlined),
+                ),
+                label: const Text('Filters'),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: () => context.go('/admin'),
+                icon: const Icon(Icons.person_add_alt_1_outlined),
+                label: const Text('Open register'),
+              ),
+              Chip(
+                avatar: const Icon(Icons.groups_2_outlined, size: 16),
+                label: Text('${students.length} total'),
+              ),
+            ],
+          ),
+        ),
+        if (hasActiveFilter) ...[
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          SliverToBoxAdapter(
+            child: Text(
+              _filterSummaryLabel(),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ),
+        ],
+        const SliverToBoxAdapter(child: SizedBox(height: 10)),
+        if (students.isEmpty)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: _EmptyState(
+              title: 'No students registered yet',
+              subtitle:
+                  'Add a student from the Register tab to create the first biometric profile.',
+            ),
+          )
+        else
+          SliverList(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final student = students[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  elevation: 0,
+                  color: scheme.surfaceContainerLow,
+                  child: _StudentTile(
+                    student: student,
+                    onEdit: () => _editStudent(context, student),
+                    onDelete: () => _deleteStudent(context, student),
+                  ),
+                ),
+              );
+            }, childCount: students.length),
+          ),
+      ],
+    );
+  }
+
+  String _filterSummaryLabel() {
+    final completionLabel = switch (completionFilter) {
+      _CompletionFilter.all => 'All profiles',
+      _CompletionFilter.completeOnly => 'Complete profiles',
+      _CompletionFilter.incompleteOnly => 'Incomplete profiles',
+    };
+    final sortLabel = switch (sortMode) {
+      _SortMode.nameAsc => 'Name A-Z',
+      _SortMode.nameDesc => 'Name Z-A',
+      _SortMode.idAsc => 'ID A-Z',
+      _SortMode.idDesc => 'ID Z-A',
+    };
+    return '$completionLabel • Sorted by $sortLabel';
+  }
+
+  Future<void> _openFilterSheet(BuildContext context) async {
+    var draftCompletion = completionFilter;
+    var draftSort = sortMode;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Filter students', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 14),
+                Text('Completion', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                SegmentedButton<_CompletionFilter>(
+                  segments: const [
+                    ButtonSegment(
+                      value: _CompletionFilter.all,
+                      label: Text('All'),
+                    ),
+                    ButtonSegment(
+                      value: _CompletionFilter.completeOnly,
+                      label: Text('Complete'),
+                    ),
+                    ButtonSegment(
+                      value: _CompletionFilter.incompleteOnly,
+                      label: Text('Incomplete'),
+                    ),
+                  ],
+                  selected: {draftCompletion},
+                  onSelectionChanged: (value) {
+                    setSheetState(() => draftCompletion = value.first);
                   },
                 ),
+                const SizedBox(height: 14),
+                Text('Sort by', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<_SortMode>(
+                  initialValue: draftSort,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: _SortMode.nameAsc,
+                      child: Text('Name A-Z'),
+                    ),
+                    DropdownMenuItem(
+                      value: _SortMode.nameDesc,
+                      child: Text('Name Z-A'),
+                    ),
+                    DropdownMenuItem(
+                      value: _SortMode.idAsc,
+                      child: Text('ID A-Z'),
+                    ),
+                    DropdownMenuItem(
+                      value: _SortMode.idDesc,
+                      child: Text('ID Z-A'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setSheetState(() => draftSort = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          completionFilter = _CompletionFilter.all;
+                          sortMode = _SortMode.nameAsc;
+                        });
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Reset'),
+                    ),
+                    const Spacer(),
+                    FilledButton(
+                      onPressed: () {
+                        setState(() {
+                          completionFilter = draftCompletion;
+                          sortMode = draftSort;
+                        });
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Apply'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
-      ],
+      ),
     );
   }
 
@@ -200,64 +349,46 @@ class _StudentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final metadata = Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        AppPillTag(
-          label: 'ID ${student.id}',
-          backgroundColor: AppTheme.blueSoft,
-          foregroundColor: AppTheme.blue,
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      leading: _AvatarLetter(name: student.name),
+      title: Text(
+        student.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(
+          'ID ${student.id} • ${student.embeddings.length} samples',
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
-        AppPillTag(
-          label: '${student.embeddings.length} samples',
-          backgroundColor: AppTheme.accentSoft,
-          foregroundColor: AppTheme.accentDark,
-        ),
-      ],
-    );
-
-    return AppPanel(
-      radius: 14,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      padding: const EdgeInsets.all(12),
-      elevated: false,
-      child: Row(
-        children: [
-          _AvatarLetter(name: student.name),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  student.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 6),
-                metadata,
-              ],
+      ),
+      trailing: PopupMenuButton<String>(
+        onSelected: (value) {
+          if (value == 'edit') {
+            onEdit();
+          } else {
+            onDelete();
+          }
+        },
+        itemBuilder: (context) => const [
+          PopupMenuItem<String>(
+            value: 'edit',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.edit_outlined),
+              title: Text('Edit'),
             ),
           ),
-          const SizedBox(width: 8),
-          IconButton.filledTonal(
-            onPressed: onEdit,
-            style: IconButton.styleFrom(
-              backgroundColor: AppTheme.blueSoft,
-              foregroundColor: AppTheme.blue,
+          PopupMenuItem<String>(
+            value: 'delete',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.delete_outline),
+              title: Text('Delete'),
             ),
-            icon: const Icon(Icons.edit_outlined),
-          ),
-          const SizedBox(width: 6),
-          IconButton.filledTonal(
-            onPressed: onDelete,
-            style: IconButton.styleFrom(
-              backgroundColor: AppTheme.dangerSoft,
-              foregroundColor: AppTheme.danger,
-            ),
-            icon: const Icon(Icons.delete_outline),
           ),
         ],
       ),
@@ -273,20 +404,19 @@ class _AvatarLetter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 58,
-      height: 58,
+      width: 52,
+      height: 52,
       decoration: BoxDecoration(
-        gradient: AppTheme.blueGradient,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: AppTheme.panelShadow,
+        color: Theme.of(context).colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(16),
       ),
       alignment: Alignment.center,
       child: Text(
         name.isNotEmpty ? name[0].toUpperCase() : 'S',
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w800,
-          fontSize: 20,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onPrimaryContainer,
+          fontWeight: FontWeight.w700,
+          fontSize: 18,
         ),
       ),
     );
@@ -301,52 +431,34 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Center(
-              child: AppPanel(
-                radius: 28,
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                elevated: false,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.orangeGradient,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: AppTheme.panelShadow,
-                      ),
-                      child: const Icon(
-                        Icons.person_search_outlined,
-                        size: 32,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      subtitle,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.person_search_outlined,
+              size: 34,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 10),
+            Text(title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }
+
+enum _CompletionFilter { all, completeOnly, incompleteOnly }
+
+enum _SortMode { nameAsc, nameDesc, idAsc, idDesc }

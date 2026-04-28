@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
+import '../providers/settings_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'responsive_utils.dart';
 
 class AppBackground extends StatelessWidget {
   final Widget child;
@@ -14,10 +17,7 @@ class AppBackground extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            cs.surface,
-            cs.surface.withValues(alpha: 0.94),
-          ],
+          colors: [cs.surface, cs.surface.withValues(alpha: 0.94)],
         ),
       ),
       child: child,
@@ -63,7 +63,10 @@ class AppPanel extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         shape: shape,
         clipBehavior: Clip.antiAlias,
-        child: DecoratedBox(decoration: BoxDecoration(gradient: gradient), child: content),
+        child: DecoratedBox(
+          decoration: BoxDecoration(gradient: gradient),
+          child: content,
+        ),
       );
     }
 
@@ -96,7 +99,8 @@ class AppPillTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = foregroundColor ?? Theme.of(context).colorScheme.onSurface;
+    final textColor =
+        foregroundColor ?? Theme.of(context).colorScheme.onSurface;
     final labelWidget = Text(
       label,
       maxLines: 1,
@@ -108,7 +112,9 @@ class AppPillTag extends StatelessWidget {
       padding:
           padding ?? const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: backgroundColor ?? Theme.of(context).colorScheme.surfaceContainerHighest,
+        color:
+            backgroundColor ??
+            Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: Theme.of(context).dividerColor),
       ),
@@ -153,7 +159,9 @@ class AppSectionHeading extends StatelessWidget {
       children: [
         AppPillTag(
           label: eyebrow,
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+          backgroundColor: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest,
           foregroundColor: AppTheme.muted,
         ),
         const SizedBox(height: 16),
@@ -184,3 +192,138 @@ class AppSectionHeading extends StatelessWidget {
   }
 }
 
+class AppPageScaffold extends ConsumerWidget {
+  final String title;
+  final String subtitle;
+  final Widget child;
+  final List<Widget>? actions;
+  final bool sliverLike;
+
+  const AppPageScaffold({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.child,
+    this.actions,
+    this.sliverLike = false,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final compactMode = ref.watch(compactModeProvider);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final compact = compactMode || AppBreakpoints.isCompact(width);
+        final contentWidth = AppBreakpoints.contentWidth(width);
+        final padding = AppBreakpoints.pagePadding(width);
+        return SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: contentWidth),
+              child: Padding(
+                padding: padding,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppPageHeader(
+                      title: title,
+                      subtitle: subtitle,
+                      compact: compact,
+                      actions: actions,
+                    ),
+                    SizedBox(height: AppSpacing.sectionGap(compact)),
+                    Expanded(child: child),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class AppPageHeader extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final bool compact;
+  final List<Widget>? actions;
+
+  const AppPageHeader({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.compact,
+    this.actions,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: compact
+                    ? Theme.of(context).textTheme.headlineMedium
+                    : Theme.of(context).textTheme.headlineLarge,
+              ),
+              const SizedBox(height: 4),
+              Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+            ],
+          ),
+        ),
+        if (actions != null && actions!.isNotEmpty)
+          Wrap(spacing: 8, children: actions!),
+      ],
+    );
+  }
+}
+
+class AppEmptyState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  const AppEmptyState({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: AppPanel(
+        radius: 20,
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        elevated: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 32,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 12),
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

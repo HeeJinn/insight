@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../app_theme.dart';
+import '../providers/flavor_profiles_provider.dart';
 import '../providers/hive_provider.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/app_chrome.dart';
@@ -37,10 +38,12 @@ class SettingsScreen extends ConsumerWidget {
     final animationsEnabled = ref.watch(animationsEnabledProvider);
     final soundFeedback = ref.watch(soundFeedbackProvider);
     final compactMode = ref.watch(compactModeProvider);
+    final flavors = ref.watch(flavorProfilesProvider);
     final studentsAsync = ref.watch(studentsBoxProvider);
     final attendanceAsync = ref.watch(attendanceBoxProvider);
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         leading: BackButton(
           onPressed: () => context.canPop() ? context.pop() : context.go('/'),
@@ -48,7 +51,7 @@ class SettingsScreen extends ConsumerWidget {
         title: const Text('Settings'),
         actions: [
           TextButton(
-            onPressed: () => context.push('/privacy'),
+            onPressed: () => context.push('/settings/privacy'),
             child: const Text('Privacy'),
           ),
         ],
@@ -61,6 +64,10 @@ class SettingsScreen extends ConsumerWidget {
             final wide = width >= 1080;
             final contentWidth = AppBreakpoints.contentWidth(width);
             final padding = AppBreakpoints.pagePadding(width);
+            final bottomSafeGap =
+                MediaQuery.viewPaddingOf(context).bottom +
+                kBottomNavigationBarHeight +
+                24;
 
             final thresholdPanel = AppPanel(
               child: Column(
@@ -117,7 +124,10 @@ class SettingsScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Appearance', style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    'Appearance',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Choose app theme and interface behavior.',
@@ -153,18 +163,24 @@ class SettingsScreen extends ConsumerWidget {
                   SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Enable animations'),
-                    subtitle: const Text('Use motion effects across the interface.'),
+                    subtitle: const Text(
+                      'Use motion effects across the interface.',
+                    ),
                     value: animationsEnabled,
-                    onChanged: (v) =>
-                        ref.read(settingsControllerProvider).setAnimationsEnabled(v),
+                    onChanged: (v) => ref
+                        .read(settingsControllerProvider)
+                        .setAnimationsEnabled(v),
                   ),
                   SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Sound feedback'),
-                    subtitle: const Text('Play cues for recognition and actions.'),
+                    subtitle: const Text(
+                      'Play cues for recognition and actions.',
+                    ),
                     value: soundFeedback,
-                    onChanged: (v) =>
-                        ref.read(settingsControllerProvider).setSoundFeedback(v),
+                    onChanged: (v) => ref
+                        .read(settingsControllerProvider)
+                        .setSoundFeedback(v),
                   ),
                   SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
@@ -206,6 +222,58 @@ class SettingsScreen extends ConsumerWidget {
                     title: 'Fallback protection',
                     subtitle:
                         'Registration keeps working when model calls fail.',
+                  ),
+                ],
+              ),
+            );
+
+            final flavorPanel = AppPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Flavor studio',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Customize Vessel and Scoop from the admin side with editable copy, tone, and visibility.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 14),
+                  ...flavors.map(
+                    (profile) => Card(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      child: ListTile(
+                        leading: Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: AppTheme.flavorToneSoft(profile.tone),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Icon(
+                            profile.id == 'vessel'
+                                ? Icons.layers_outlined
+                                : Icons.auto_awesome_mosaic_outlined,
+                            color: AppTheme.flavorToneColor(profile.tone),
+                          ),
+                        ),
+                        title: Text(profile.name),
+                        subtitle: Text(
+                          profile.enabled
+                              ? profile.tagline
+                              : '${profile.tagline} · paused',
+                        ),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  FilledButton.tonalIcon(
+                    onPressed: () => context.push('/settings/flavors'),
+                    icon: const Icon(Icons.palette_outlined),
+                    label: const Text('Open Flavor Studio'),
                   ),
                 ],
               ),
@@ -289,7 +357,9 @@ class SettingsScreen extends ConsumerWidget {
 
             return SafeArea(
               child: SingleChildScrollView(
-                padding: padding,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: padding.copyWith(bottom: bottomSafeGap),
                 child: Center(
                   child: ConstrainedBox(
                     constraints: BoxConstraints(maxWidth: contentWidth),
@@ -313,24 +383,40 @@ class SettingsScreen extends ConsumerWidget {
                               Expanded(
                                 child: Column(
                                   children: [
-                                    appearancePanel,
+                                    systemStatusPanel,
                                     const SizedBox(height: 18),
                                     thresholdPanel,
+                                    const SizedBox(height: 18),
+                                    appearancePanel,
                                     const SizedBox(height: 18),
                                     enginePanel,
                                   ],
                                 ),
                               ),
                               const SizedBox(width: 18),
-                              Expanded(child: systemStatusPanel),
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    flavorPanel,
+                                    const SizedBox(height: 18),
+                                    AppPanel(
+                                      child: const Text(
+                                        'Advanced tools are grouped below to keep daily configuration faster and cleaner.',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
                           )
                         else ...[
-                          appearancePanel,
+                          systemStatusPanel,
                           const SizedBox(height: 18),
                           thresholdPanel,
                           const SizedBox(height: 18),
-                          systemStatusPanel,
+                          appearancePanel,
+                          const SizedBox(height: 18),
+                          flavorPanel,
                           const SizedBox(height: 18),
                           enginePanel,
                         ],
