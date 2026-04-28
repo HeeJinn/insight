@@ -12,12 +12,15 @@ class AppBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [cs.surface, cs.surface.withValues(alpha: 0.94)],
+          colors: isLight
+              ? [AppTheme.backgroundSoft, AppTheme.background]
+              : [cs.surface, cs.surface.withValues(alpha: 0.94)],
         ),
       ),
       child: child,

@@ -55,26 +55,43 @@ class _StudentListState extends State<StudentList> {
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       slivers: [
         SliverToBoxAdapter(
-          child: SearchBar(
-            hintText: 'Search student name or ID',
-            leading: const Icon(Icons.search),
-            onChanged: (value) => setState(() => query = value),
-            backgroundColor: WidgetStatePropertyAll(
-              Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: scheme.surface.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
-            elevation: const WidgetStatePropertyAll(0),
+            child: SearchBar(
+              hintText: 'Search student name or ID',
+              leading: const Icon(Icons.search, size: 20),
+              onChanged: (value) => setState(() => query = value),
+              backgroundColor: WidgetStatePropertyAll(
+                Theme.of(context).colorScheme.surfaceContainerHighest,
+              ),
+              elevation: const WidgetStatePropertyAll(0),
+              constraints: const BoxConstraints(minHeight: 46),
+            ),
           ),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+        const SliverToBoxAdapter(child: SizedBox(height: 10)),
         SliverToBoxAdapter(
           child: Wrap(
             spacing: 8,
             runSpacing: 8,
-            alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              OutlinedButton.icon(
+              FilledButton.tonalIcon(
                 onPressed: () => _openFilterSheet(context),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 36),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
                 icon: Badge(
                   isLabelVisible: hasActiveFilter,
                   smallSize: 7,
@@ -84,6 +101,15 @@ class _StudentListState extends State<StudentList> {
               ),
               FilledButton.tonalIcon(
                 onPressed: () => context.go('/admin'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 36),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
                 icon: const Icon(Icons.person_add_alt_1_outlined),
                 label: const Text('Open register'),
               ),
@@ -97,11 +123,27 @@ class _StudentListState extends State<StudentList> {
         if (hasActiveFilter) ...[
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
           SliverToBoxAdapter(
-            child: Text(
-              _filterSummaryLabel(),
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                ..._activeFilterLabels().map(
+                  (label) => Chip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text(label),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      completionFilter = _CompletionFilter.all;
+                      sortMode = _SortMode.nameAsc;
+                    });
+                  },
+                  child: const Text('Reset filters'),
+                ),
+              ],
             ),
           ),
         ],
@@ -120,11 +162,17 @@ class _StudentListState extends State<StudentList> {
             delegate: SliverChildBuilderDelegate((context, index) {
               final student = students[index];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Card(
-                  margin: EdgeInsets.zero,
-                  elevation: 0,
-                  color: scheme.surfaceContainerLow,
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Theme.of(context).dividerColor.withValues(
+                          alpha: 0.55,
+                        ),
+                      ),
+                    ),
+                  ),
                   child: _StudentTile(
                     student: student,
                     onEdit: () => _editStudent(context, student),
@@ -151,6 +199,33 @@ class _StudentListState extends State<StudentList> {
       _SortMode.idDesc => 'ID Z-A',
     };
     return '$completionLabel • Sorted by $sortLabel';
+  }
+
+  List<String> _activeFilterLabels() {
+    final labels = <String>[];
+    if (completionFilter != _CompletionFilter.all) {
+      labels.add(
+        switch (completionFilter) {
+          _CompletionFilter.completeOnly => 'Complete only',
+          _CompletionFilter.incompleteOnly => 'Incomplete only',
+          _CompletionFilter.all => 'All profiles',
+        },
+      );
+    }
+    if (sortMode != _SortMode.nameAsc) {
+      labels.add(
+        switch (sortMode) {
+          _SortMode.nameAsc => 'Name A-Z',
+          _SortMode.nameDesc => 'Name Z-A',
+          _SortMode.idAsc => 'ID A-Z',
+          _SortMode.idDesc => 'ID Z-A',
+        },
+      );
+    }
+    if (labels.isEmpty) {
+      labels.add(_filterSummaryLabel());
+    }
+    return labels;
   }
 
   Future<void> _openFilterSheet(BuildContext context) async {
@@ -350,7 +425,7 @@ class _StudentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       leading: _AvatarLetter(name: student.name),
       title: Text(
         student.name,
@@ -404,11 +479,11 @@ class _AvatarLetter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 52,
-      height: 52,
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       alignment: Alignment.center,
       child: Text(
@@ -416,7 +491,7 @@ class _AvatarLetter extends StatelessWidget {
         style: TextStyle(
           color: Theme.of(context).colorScheme.onPrimaryContainer,
           fontWeight: FontWeight.w700,
-          fontSize: 18,
+          fontSize: 16,
         ),
       ),
     );

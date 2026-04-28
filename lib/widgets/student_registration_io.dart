@@ -202,7 +202,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
                 compact: compact,
                 photoCount: _photos.length,
               ),
-              SizedBox(height: compact ? 10 : 14),
+              SizedBox(height: compact ? 8 : 12),
               if (wide)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,7 +218,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
                 _buildCaptureCard(context, progress),
               ],
               if (_feedbackMessage != null) ...[
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
@@ -240,7 +240,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
                   ),
                 ),
               ],
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
               studentsAsync.when(
                 loading: () => const CircularProgressIndicator(),
                 error: (error, stack) => Text('Error: $error'),
@@ -301,7 +301,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
     return _RegistrationSection(
       title: 'Identity details',
       subtitle:
-          'Add the official student information before generating the face profile.',
+          'Enter official student details before creating the face profile.',
       accent: AppTheme.blue,
       showDivider: true,
       child: wide
@@ -322,7 +322,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
     return _RegistrationSection(
       title: 'Face capture set',
       subtitle:
-          'Capture five clear samples from slightly different angles for a stronger local match profile.',
+          'Capture 5 clear photos from different angles for stronger local matching.',
       accent: AppTheme.orange,
       showDivider: false,
       child: Column(
@@ -402,7 +402,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
                         ),
                       ),
                       icon: const Icon(Icons.photo_library_outlined),
-                      label: const Text('Upload From Gallery'),
+                      label: const Text('Upload gallery'),
                     ),
                     if (_photos.isNotEmpty)
                       OutlinedButton.icon(
@@ -420,7 +420,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
                           ),
                         ),
                         icon: const Icon(Icons.refresh_outlined),
-                        label: const Text('Clear All'),
+                        label: const Text('Clear all'),
                       ),
                   ],
                 ),
@@ -737,6 +737,10 @@ class _RegistrationSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final subtitleStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      height: 1.35,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -756,18 +760,23 @@ class _RegistrationSection extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    title,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+                  Text(subtitle, style: subtitleStyle),
                 ],
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         child,
         if (showDivider) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Divider(color: Theme.of(context).colorScheme.outlineVariant),
         ],
       ],
@@ -783,6 +792,10 @@ class _RegistrationHeroHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final subtitleStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      height: 1.4,
+    );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -799,18 +812,22 @@ class _RegistrationHeroHeader extends StatelessWidget {
               Text(
                 'Student Registration',
                 style: compact
-                    ? Theme.of(context).textTheme.headlineMedium
-                    : Theme.of(context).textTheme.headlineLarge,
+                    ? Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      )
+                    : Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
-                'Create a student profile with guided face capture for local kiosk recognition.',
-                style: Theme.of(context).textTheme.bodyLarge,
+                'Create a profile with guided capture for kiosk recognition.',
+                style: subtitleStyle,
               ),
             ],
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
         AppPillTag(
           label: '$photoCount/5 photos',
           backgroundColor: Theme.of(context).colorScheme.secondaryContainer,

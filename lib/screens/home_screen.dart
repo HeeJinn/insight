@@ -223,7 +223,7 @@ class _Header extends StatelessWidget {
                 color: Theme.of(context).colorScheme.outlineVariant,
               ),
             ),
-            child: const Icon(Icons.person_outline_rounded),
+            child: const Icon(Icons.settings_outlined),
           ),
         ),
       ],

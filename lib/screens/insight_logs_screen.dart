@@ -138,12 +138,12 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                 return Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                       child: LayoutBuilder(
                         builder: (context, constraints) {
-                          final wideActions = constraints.maxWidth >= 420;
+                          final wideActions = constraints.maxWidth >= 480;
                           return Container(
-                            padding: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: Theme.of(context).colorScheme.surface.withValues(
                             alpha: 0.35,
@@ -174,7 +174,7 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                               ),
                               constraints: const BoxConstraints(minHeight: 46),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 6),
                             if (wideActions)
                               Row(
                                 children: [
@@ -191,7 +191,7 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 6),
                                   Expanded(
                                     child: _CompactActionButton(
                                       icon: Icons.download_outlined,
@@ -205,7 +205,7 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                                             ),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 6),
                                   Expanded(
                                     child: _PresetMenuButton(
                                       defaultPresets: _defaultPresets,
@@ -228,7 +228,7 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                             else
                               Wrap(
                                 spacing: 8,
-                                runSpacing: 8,
+                                runSpacing: 6,
                                 children: [
                                   _CompactActionButton(
                                     icon: Icons.filter_alt_outlined,
@@ -270,7 +270,7 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                                 ],
                               ),
                             if (_hasActiveFilters) ...[
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 4),
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 6,
@@ -294,7 +294,7 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                                 ],
                               ),
                             ],
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 4),
                             Text(
                               '${filtered.length} check-ins • ${_rangeLabel(range)}${effectiveRoom != null ? ' • room $effectiveRoom' : ''}',
                               style: Theme.of(context).textTheme.bodySmall
@@ -1029,10 +1029,10 @@ class _DayHeaderDelegate extends SliverPersistentHeaderDelegate {
   const _DayHeaderDelegate({required this.label});
 
   @override
-  double get minExtent => 30;
+  double get minExtent => 26;
 
   @override
-  double get maxExtent => 30;
+  double get maxExtent => 26;
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
@@ -1040,15 +1040,15 @@ class _DayHeaderDelegate extends SliverPersistentHeaderDelegate {
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Container(
         alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(7),
           border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Text(
           label,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
@@ -1153,8 +1153,8 @@ class _CompactActionButton extends StatelessWidget {
     return FilledButton.tonalIcon(
       onPressed: onPressed,
       style: FilledButton.styleFrom(
-        minimumSize: const Size(0, 36),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        minimumSize: const Size(0, 34),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
           fontWeight: FontWeight.w700,
         ),
@@ -1218,8 +1218,8 @@ class _PresetMenuButton extends StatelessWidget {
       child: OutlinedButton.icon(
         onPressed: null,
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, 36),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          minimumSize: const Size(0, 34),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           visualDensity: VisualDensity.compact,
         ),

@@ -4,13 +4,13 @@ import 'models/flavor_profile.dart';
 
 class AppTheme {
   // Indigo/violet-led palette.
-  static const Color background = Color(0xFFF5F6F8);
-  static const Color backgroundSoft = Color(0xFFF9FAFB);
+  static const Color background = Color(0xFFF3F5FA);
+  static const Color backgroundSoft = Color(0xFFF8FAFF);
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceSoft = Color(0xFFF3F4F6);
-  static const Color ink = Color(0xFF111827);
-  static const Color muted = Color(0xFF9CA3AF);
-  static const Color border = Color(0xFFE5E7EB);
+  static const Color surfaceSoft = Color(0xFFF5F7FC);
+  static const Color ink = Color(0xFF0F172A);
+  static const Color muted = Color(0xFF72809A);
+  static const Color border = Color(0xFFDCE3EE);
 
   static const Color accent = Color(0xFF6366F1);
   static const Color accentDark = Color(0xFF4F46E5);
@@ -77,7 +77,7 @@ class AppTheme {
   );
 
   static List<BoxShadow> get panelShadow => const [
-    BoxShadow(color: Color(0x14000000), blurRadius: 16, offset: Offset(0, 8)),
+    BoxShadow(color: Color(0x120A1733), blurRadius: 18, offset: Offset(0, 8)),
   ];
 
   static Color flavorToneColor(FlavorTone tone) {
@@ -180,7 +180,7 @@ class AppTheme {
         bodyMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
-          color: Color(0xFF3F4651),
+          color: Color(0xFF334155),
           height: 1.45,
         ),
       ),
@@ -197,7 +197,7 @@ class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: border),
         ),
       ),
@@ -216,23 +216,23 @@ class AppTheme {
           vertical: 18,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: accentDark, width: 1.8),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: danger),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: danger, width: 1.6),
         ),
       ),
@@ -246,9 +246,7 @@ class AppTheme {
           disabledForegroundColor: muted,
           minimumSize: const Size(0, 52),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ),
@@ -259,9 +257,7 @@ class AppTheme {
           backgroundColor: surface,
           foregroundColor: ink,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ),
@@ -269,9 +265,7 @@ class AppTheme {
         style: FilledButton.styleFrom(
           minimumSize: const Size(0, 50),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ),
@@ -322,7 +316,7 @@ class AppTheme {
           EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         ),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
@@ -336,9 +330,9 @@ class AppTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: surface,
+        backgroundColor: Color(0xFFFDFEFF),
         indicatorColor: scheme.secondaryContainer,
-        height: 70,
+        height: 68,
         elevation: 0,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           return TextStyle(
