@@ -63,7 +63,7 @@ class KioskMode extends ConsumerWidget {
                                   )
                                 : AppPanel(
                                     padding: const EdgeInsets.all(24),
-                                    gradient: AppTheme.accentGradient,
+                                    gradient: context.appDecorations.accentGradient,
                                     borderColor: Colors.white.withValues(
                                       alpha: 0.25,
                                     ),
@@ -193,10 +193,10 @@ class _CompactKioskHeader extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const AppPillTag(
+                    AppPillTag(
                       label: 'Live kiosk recognition',
-                      backgroundColor: AppTheme.accentSoft,
-                      foregroundColor: AppTheme.accentDark,
+                      backgroundColor: context.appColors.accentSoft,
+                      foregroundColor: context.appColors.accentDark,
                     ),
                     const SizedBox(height: 10),
                     Text(
@@ -211,7 +211,7 @@ class _CompactKioskHeader extends StatelessWidget {
                 style: IconButton.styleFrom(
                   backgroundColor:
                       Theme.of(context).colorScheme.surfaceContainerHighest,
-                  foregroundColor: AppTheme.ink,
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
                 ),
                 icon: const Icon(Icons.dashboard_customize_outlined),
               ),
@@ -221,7 +221,7 @@ class _CompactKioskHeader extends StatelessWidget {
                 style: IconButton.styleFrom(
                   backgroundColor:
                       Theme.of(context).colorScheme.surfaceContainerHighest,
-                  foregroundColor: AppTheme.ink,
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
                 ),
                 icon: const Icon(Icons.tune_outlined),
               ),
@@ -240,14 +240,14 @@ class _CompactKioskHeader extends StatelessWidget {
               AppPillTag(
                 label: '$studentCount ready',
                 icon: Icons.groups_2_outlined,
-                backgroundColor: AppTheme.accentSoft,
-                foregroundColor: AppTheme.accentDark,
+                backgroundColor: context.appColors.accentSoft,
+                foregroundColor: context.appColors.accentDark,
               ),
               AppPillTag(
                 label: '$attendanceCount logs',
                 icon: Icons.event_note_outlined,
-                backgroundColor: AppTheme.blueSoft,
-                foregroundColor: AppTheme.blue,
+                backgroundColor: context.appColors.blueSoft,
+                foregroundColor: context.appColors.blue,
               ),
             ],
           ),
@@ -267,8 +267,8 @@ class _KioskActions extends StatelessWidget {
     final admin = ElevatedButton.icon(
       onPressed: () => context.go('/admin'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: AppTheme.ink,
+        backgroundColor: context.appColors.button,
+        foregroundColor: context.appColors.buttonText,
       ),
       icon: const Icon(Icons.dashboard_customize_outlined),
       label: const Text('Admin Dashboard'),
@@ -329,9 +329,9 @@ class _KioskEmptyState extends StatelessWidget {
                 width: 82,
                 height: 82,
                 decoration: BoxDecoration(
-                  gradient: AppTheme.orangeGradient,
+                  gradient: context.appDecorations.orangeGradient,
                   borderRadius: BorderRadius.circular(26),
-                  boxShadow: AppTheme.panelShadow,
+                  boxShadow: context.appDecorations.panelShadow,
                 ),
                 child: const Icon(
                   Icons.person_search_outlined,

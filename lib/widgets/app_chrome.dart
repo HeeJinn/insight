@@ -11,18 +11,8 @@ class AppBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: isLight
-              ? [AppTheme.backgroundSoft, AppTheme.background]
-              : [cs.surface, cs.surface.withValues(alpha: 0.94)],
-        ),
-      ),
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: child,
     );
   }
@@ -108,7 +98,11 @@ class AppPillTag extends StatelessWidget {
       label,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: textColor,
+            fontWeight: FontWeight.w700,
+          ) ??
+          TextStyle(color: textColor, fontWeight: FontWeight.w700),
     );
 
     return Container(
@@ -165,7 +159,7 @@ class AppSectionHeading extends StatelessWidget {
           backgroundColor: Theme.of(
             context,
           ).colorScheme.surfaceContainerHighest,
-          foregroundColor: AppTheme.muted,
+          foregroundColor: context.appColors.mutedText,
         ),
         const SizedBox(height: 16),
         Text(title, style: titleStyle),

@@ -18,6 +18,7 @@ class MyApp extends ConsumerWidget {
     final settingsBootstrap = ref.watch(settingsBootstrapProvider);
     final appBootstrap = ref.watch(appStateBootstrapProvider);
     final themeMode = ref.watch(effectiveThemeModeProvider);
+    final themeSeed = ref.watch(activeThemeSeedProvider);
 
     if (settingsBootstrap.isLoading || appBootstrap.isLoading) {
       return const MaterialApp(
@@ -29,8 +30,8 @@ class MyApp extends ConsumerWidget {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'Biometric Attendance',
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.light(seedColor: themeSeed),
+      darkTheme: AppTheme.dark(seedColor: themeSeed),
       themeMode: themeMode,
       routerConfig: router,
     );

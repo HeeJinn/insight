@@ -87,14 +87,14 @@ class SettingsScreen extends ConsumerWidget {
                     children: [
                       AppPillTag(
                         label: threshold.toStringAsFixed(2),
-                        backgroundColor: AppTheme.accentSoft,
-                        foregroundColor: AppTheme.accentDark,
+                        backgroundColor: context.appColors.accentSoft,
+                        foregroundColor: context.appColors.accentDark,
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'Applied during live kiosk recognition.',
-                          style: TextStyle(color: AppTheme.muted),
+                          style: TextStyle(color: context.appColors.mutedText),
                         ),
                       ),
                     ],
@@ -208,16 +208,16 @@ class SettingsScreen extends ConsumerWidget {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 18),
-                  const _InfoTile(
-                    color: AppTheme.accent,
+                  _InfoTile(
+                    color: context.appColors.accent,
                     icon: Icons.cloud_off_outlined,
                     title: 'Offline first',
                     subtitle:
                         'Student data and recognition stay on the device.',
                   ),
                   const SizedBox(height: 12),
-                  const _InfoTile(
-                    color: AppTheme.blue,
+                  _InfoTile(
+                    color: context.appColors.blue,
                     icon: Icons.shield_outlined,
                     title: 'Fallback protection',
                     subtitle:
@@ -299,7 +299,7 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 18),
                       _StatusTile(
-                        color: AppTheme.accent,
+                        color: context.appColors.accent,
                         label: 'Storage',
                         value: studentsAsync.maybeWhen(
                           data: (_) => 'Ready',
@@ -309,7 +309,7 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       _StatusTile(
-                        color: AppTheme.blue,
+                        color: context.appColors.blue,
                         label: 'Student records',
                         value: studentsAsync.maybeWhen(
                           data: (box) => '${box.length} loaded',
@@ -319,7 +319,7 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       _StatusTile(
-                        color: AppTheme.orange,
+                        color: context.appColors.orange,
                         label: 'Attendance logs',
                         value: attendanceAsync.maybeWhen(
                           data: (box) => '${box.length} stored',
@@ -329,7 +329,7 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       _StatusTile(
-                        color: AppTheme.pink,
+                        color: context.appColors.pink,
                         label: 'Detection model',
                         value: status == null
                             ? 'Checking'
@@ -340,7 +340,7 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       _StatusTile(
-                        color: AppTheme.accentDark,
+                        color: context.appColors.accentDark,
                         label: 'Recognition model',
                         value: status == null
                             ? 'Checking'

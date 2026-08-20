@@ -118,8 +118,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
       ),
-      GoRoute(path: '/privacy', redirect: (_, __) => '/settings/privacy'),
-      GoRoute(path: '/flavors', redirect: (_, __) => '/settings/flavors'),
+      GoRoute(path: '/privacy', redirect: (context, state) => '/settings/privacy'),
+      GoRoute(path: '/flavors', redirect: (context, state) => '/settings/flavors'),
     ],
   );
 });

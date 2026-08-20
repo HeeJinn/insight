@@ -6,10 +6,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/flavor_profile.dart';
 
 const _flavorProfilesKey = 'workspace_flavors_v1';
+const _activeFlavorKey = 'active_flavor_id_v1';
+
+final activeFlavorIdProvider = StateProvider<String>((ref) => 'vessel');
 
 final flavorProfilesProvider =
     StateNotifierProvider<FlavorProfilesController, List<FlavorProfile>>(
-      (ref) => FlavorProfilesController()..load(),
+      (ref) => FlavorProfilesController(ref)..load(),
     );
 
 final enabledFlavorProfilesProvider = Provider<List<FlavorProfile>>((ref) {
@@ -17,6 +20,17 @@ final enabledFlavorProfilesProvider = Provider<List<FlavorProfile>>((ref) {
       .watch(flavorProfilesProvider)
       .where((profile) => profile.enabled)
       .toList(growable: false);
+});
+
+final activeFlavorProfileProvider = Provider<FlavorProfile?>((ref) {
+  final activeId = ref.watch(activeFlavorIdProvider);
+  final profiles = ref.watch(flavorProfilesProvider);
+  for (final profile in profiles) {
+    if (profile.id == activeId) {
+      return profile;
+    }
+  }
+  return profiles.isNotEmpty ? profiles.first : null;
 });
 
 final flavorProfileByIdProvider = Provider.family<FlavorProfile?, String>((
@@ -32,10 +46,16 @@ final flavorProfileByIdProvider = Provider.family<FlavorProfile?, String>((
 });
 
 class FlavorProfilesController extends StateNotifier<List<FlavorProfile>> {
-  FlavorProfilesController() : super(FlavorProfile.defaults());
+  final Ref _ref;
+  FlavorProfilesController(this._ref) : super(FlavorProfile.defaults());
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
+    final savedActive = prefs.getString(_activeFlavorKey);
+    if (savedActive != null && savedActive.isNotEmpty) {
+      _ref.read(activeFlavorIdProvider.notifier).state = savedActive;
+    }
+
     final raw = prefs.getString(_flavorProfilesKey);
     if (raw == null || raw.isEmpty) {
       state = FlavorProfile.defaults();
@@ -53,6 +73,12 @@ class FlavorProfilesController extends StateNotifier<List<FlavorProfile>> {
     } catch (_) {
       state = FlavorProfile.defaults();
     }
+  }
+
+  Future<void> setActiveFlavor(String id) async {
+    _ref.read(activeFlavorIdProvider.notifier).state = id;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_activeFlavorKey, id);
   }
 
   Future<void> upsertFlavor(FlavorProfile profile) async {

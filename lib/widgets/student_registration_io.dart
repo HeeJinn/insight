@@ -302,7 +302,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
       title: 'Identity details',
       subtitle:
           'Enter official student details before creating the face profile.',
-      accent: AppTheme.blue,
+      accent: context.appColors.blue,
       showDivider: true,
       child: wide
           ? Row(
@@ -323,7 +323,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
       title: 'Face capture set',
       subtitle:
           'Capture 5 clear photos from different angles for stronger local matching.',
-      accent: AppTheme.orange,
+      accent: context.appColors.orange,
       showDivider: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,9 +367,12 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
                   child: LinearProgressIndicator(
                     minHeight: 10,
                     value: progress,
-                    backgroundColor: Colors.white.withValues(alpha: 0.25),
+                    backgroundColor: Theme.of(context)
+                        .colorScheme
+                        .outlineVariant
+                        .withValues(alpha: 0.35),
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      Theme.of(context).colorScheme.onSecondaryContainer,
+                      Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 ),
@@ -452,8 +455,8 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
                         left: 8,
                         child: AppPillTag(
                           label: '#${index + 1}',
-                          backgroundColor: Colors.white.withValues(alpha: 0.94),
-                          foregroundColor: AppTheme.ink,
+                          backgroundColor: context.appColors.elevatedSurface.withValues(alpha: 0.94),
+                          foregroundColor: context.appColors.primaryText,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
                             vertical: 8,
@@ -814,7 +817,7 @@ class _RegistrationHeroHeader extends StatelessWidget {
               AppPillTag(
                 label: 'Enrollment flow',
                 backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                foregroundColor: AppTheme.muted,
+                foregroundColor: context.appColors.mutedText,
               ),
               const SizedBox(height: 10),
               Text(

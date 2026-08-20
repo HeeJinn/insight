@@ -99,14 +99,14 @@ class HomeScreen extends ConsumerWidget {
                         _TodaySessionsStrip(sessions: sessions),
                         if (kIsWeb) ...[
                           const SizedBox(height: 14),
-                          const AppPanel(
-                            color: AppTheme.warningSoft,
+                          AppPanel(
+                            color: context.appColors.warningSoft,
                             radius: 18,
-                            padding: EdgeInsets.all(14),
+                            padding: const EdgeInsets.all(14),
                             child: Text(
                               'Web is view-only for this prototype. Use Android, iOS, or desktop for registration and live scanning.',
                               style: TextStyle(
-                                color: AppTheme.ink,
+                                color: context.appColors.primaryText,
                                 height: 1.5,
                               ),
                             ),
@@ -292,7 +292,11 @@ class _KioskHeroCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.circle, size: 10, color: AppTheme.accent),
+                    Icon(
+                      Icons.circle,
+                      size: 10,
+                      color: context.appColors.accent,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       '$detectedToday student${detectedToday == 1 ? '' : 's'} detected today',

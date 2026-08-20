@@ -164,8 +164,10 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                                 ).colorScheme.surfaceContainerHighest,
                               ),
                               elevation: const WidgetStatePropertyAll(0),
-                              side: const WidgetStatePropertyAll(
-                                BorderSide(color: AppTheme.border),
+                              side: WidgetStatePropertyAll(
+                                BorderSide(
+                                  color: Theme.of(context).dividerColor,
+                                ),
                               ),
                               shape: WidgetStatePropertyAll(
                                 RoundedRectangleBorder(
@@ -182,7 +184,7 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                                     child: _CompactActionButton(
                                       icon: Icons.filter_alt_outlined,
                                       label: _hasActiveFilters
-                                          ? 'Filters (${_activeFilterCount})'
+                                          ? 'Filters ($_activeFilterCount)'
                                           : 'Filters',
                                       onPressed: () => _openFilterSheet(
                                         context: context,
@@ -233,7 +235,7 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                                   _CompactActionButton(
                                     icon: Icons.filter_alt_outlined,
                                     label: _hasActiveFilters
-                                        ? 'Filters (${_activeFilterCount})'
+                                        ? 'Filters ($_activeFilterCount)'
                                         : 'Filters',
                                     onPressed: () => _openFilterSheet(
                                       context: context,
@@ -298,7 +300,9 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                             Text(
                               '${filtered.length} check-ins • ${_rangeLabel(range)}${effectiveRoom != null ? ' • room $effectiveRoom' : ''}',
                               style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: AppTheme.muted),
+                                  ?.copyWith(
+                                    color: context.appColors.mutedText,
+                                  ),
                             ),
                           ],
                         ),
@@ -549,7 +553,7 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                     ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String?>(
-                    value: draftSelectedSession,
+                    initialValue: draftSelectedSession,
                     decoration: const InputDecoration(
                       labelText: 'Session',
                       isDense: true,
@@ -568,7 +572,7 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                   ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String?>(
-                    value: draftSelectedRoom,
+                    initialValue: draftSelectedRoom,
                     decoration: const InputDecoration(
                       labelText: 'Room',
                       isDense: true,
@@ -710,12 +714,12 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
         ),
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(this.context).showSnackBar(
         SnackBar(content: Text('CSV exported and shared: ${file.path}')),
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(this.context).showSnackBar(
         const SnackBar(
           content: Text(
             'Exported locally. Sharing is not available on this platform.',
@@ -986,7 +990,9 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
                             Text(
                               'ID ${item.studentId}',
                               style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: AppTheme.muted),
+                                  ?.copyWith(
+                                    color: context.appColors.mutedText,
+                                  ),
                             ),
                             if ((item.sessionTitle ?? '').isNotEmpty ||
                                 (item.room ?? '').isNotEmpty)

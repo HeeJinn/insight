@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../app_theme.dart';
+import 'flavor_profiles_provider.dart';
 
 final recognitionThresholdProvider = StateProvider<double>((ref) => 0.70);
 
@@ -41,6 +43,12 @@ final effectiveThemeModeProvider = Provider<ThemeMode>((ref) {
     AppThemePreference.dark => ThemeMode.dark,
     AppThemePreference.system => ThemeMode.system,
   };
+});
+
+final activeThemeSeedProvider = Provider<Color?>((ref) {
+  final activeFlavor = ref.watch(activeFlavorProfileProvider);
+  if (activeFlavor == null || !activeFlavor.enabled) return null;
+  return AppTheme.flavorToneColor(activeFlavor.tone);
 });
 
 final settingsControllerProvider = Provider<SettingsController>(

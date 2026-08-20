@@ -26,9 +26,9 @@ class UnsupportedPlatformScreen extends StatelessWidget {
                         width: 82,
                         height: 82,
                         decoration: BoxDecoration(
-                          gradient: AppTheme.orangeGradient,
+                          gradient: context.appDecorations.orangeGradient,
                           borderRadius: BorderRadius.circular(28),
-                          boxShadow: AppTheme.panelShadow,
+                          boxShadow: context.appDecorations.panelShadow,
                         ),
                         child: const Icon(
                           Icons.warning_amber_rounded,

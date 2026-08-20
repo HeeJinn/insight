@@ -338,7 +338,7 @@ class _MetricMiniTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: AppTheme.muted),
+          Icon(icon, size: 16, color: context.appColors.mutedText),
           const SizedBox(width: 8),
           Expanded(
             child: Column(

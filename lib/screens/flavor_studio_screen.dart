@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../app_theme.dart';
 import '../models/flavor_profile.dart';
@@ -14,64 +13,55 @@ class FlavorStudioScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profiles = ref.watch(flavorProfilesProvider);
+    final activeFlavorId = ref.watch(activeFlavorIdProvider);
     final enabledCount = profiles.where((profile) => profile.enabled).length;
-    final compact = AppBreakpoints.isCompact(MediaQuery.sizeOf(context).width);
 
     return Scaffold(
-      appBar: AppBar(
-        leading: BackButton(
-          onPressed: () => context.canPop() ? context.pop() : context.go('/'),
-        ),
-        title: const Text('Flavor Studio'),
-        actions: [
-          TextButton.icon(
-            onPressed: () {
-              ref.read(flavorProfilesProvider.notifier).resetAll();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Flavor defaults restored')),
-              );
-            },
-            icon: const Icon(Icons.restart_alt_rounded),
-            label: const Text('Reset all'),
-          ),
-        ],
-      ),
+      resizeToAvoidBottomInset: false,
       body: AppBackground(
         child: LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
-            final wide = width >= 1080;
             final contentWidth = AppBreakpoints.contentWidth(width);
             final padding = AppBreakpoints.pagePadding(width);
+            final wide = width >= 860;
 
             return SafeArea(
-              child: SingleChildScrollView(
-                padding: padding,
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: contentWidth),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: contentWidth),
+                  child: Padding(
+                    padding: padding,
+                    child: ListView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       children: [
-                        AppPanel(
-                          child: AppSectionHeading(
-                            eyebrow: 'Admin customization',
-                            title: 'Vessel and Scoop',
-                            subtitle:
-                                'Edit the copy, visual tone, and visibility of your two workspace flavors so the experience fits your team.',
-                            compact: compact,
-                            trailing: Badge.count(
-                              count: enabledCount,
-                              child: FilledButton.tonalIcon(
-                                onPressed: () => context.go('/admin'),
-                                icon: const Icon(
-                                  Icons.dashboard_customize_outlined,
-                                ),
-                                label: const Text('Admin dashboard'),
-                              ),
+                        AppPageHeader(
+                          title: 'Flavor Studio',
+                          subtitle:
+                              'Configure preset flavors and dynamically tint the workspace theme.',
+                          compact: !wide,
+                          actions: [
+                            TextButton.icon(
+                              onPressed: () {
+                                ref
+                                    .read(flavorProfilesProvider.notifier)
+                                    .resetAll();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'All flavors restored to defaults',
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.restart_alt_rounded),
+                              label: const Text('Reset all'),
                             ),
-                          ),
+                          ],
                         ),
+                        const SizedBox(height: 18),
+                        const _LiveThemePreviewCard(),
                         const SizedBox(height: 18),
                         if (wide)
                           Row(
@@ -83,18 +73,24 @@ class FlavorStudioScreen extends ConsumerWidget {
                                   value: '$enabledCount / ${profiles.length}',
                                   subtitle:
                                       'Available to the admin workspace right now.',
-                                  color: AppTheme.accentDark,
+                                  color: context.appColors.accentDark,
                                   icon: Icons.tune_outlined,
                                 ),
                               ),
                               const SizedBox(width: 16),
                               Expanded(
                                 child: _FlavorOverviewCard(
-                                  title: 'Primary presets',
-                                  value: 'Vessel + Scoop',
+                                  title: 'Active theme preset',
+                                  value:
+                                      profiles
+                                          .firstWhere(
+                                            (p) => p.id == activeFlavorId,
+                                            orElse: () => profiles.first,
+                                          )
+                                          .name,
                                   subtitle:
-                                      'Both presets can be renamed, recolored, and paused.',
-                                  color: AppTheme.blue,
+                                      'Tints buttons, accents, and recognition indicators.',
+                                  color: context.appColors.blue,
                                   icon: Icons.palette_outlined,
                                 ),
                               ),
@@ -106,16 +102,22 @@ class FlavorStudioScreen extends ConsumerWidget {
                             value: '$enabledCount / ${profiles.length}',
                             subtitle:
                                 'Available to the admin workspace right now.',
-                            color: AppTheme.accentDark,
+                            color: context.appColors.accentDark,
                             icon: Icons.tune_outlined,
                           ),
                           const SizedBox(height: 12),
-                          const _FlavorOverviewCard(
-                            title: 'Primary presets',
-                            value: 'Vessel + Scoop',
+                          _FlavorOverviewCard(
+                            title: 'Active theme preset',
+                            value:
+                                profiles
+                                    .firstWhere(
+                                      (p) => p.id == activeFlavorId,
+                                      orElse: () => profiles.first,
+                                    )
+                                    .name,
                             subtitle:
-                                'Both presets can be renamed, recolored, and paused.',
-                            color: AppTheme.blue,
+                                'Tints buttons, accents, and recognition indicators.',
+                            color: context.appColors.blue,
                             icon: Icons.palette_outlined,
                           ),
                         ],
@@ -123,7 +125,10 @@ class FlavorStudioScreen extends ConsumerWidget {
                         ...profiles.map(
                           (profile) => Padding(
                             padding: const EdgeInsets.only(bottom: 14),
-                            child: _FlavorCard(profile: profile),
+                            child: _FlavorCard(
+                              profile: profile,
+                              isActive: profile.id == activeFlavorId,
+                            ),
                           ),
                         ),
                       ],
@@ -134,6 +139,70 @@ class FlavorStudioScreen extends ConsumerWidget {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _LiveThemePreviewCard extends ConsumerWidget {
+  const _LiveThemePreviewCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activeFlavor = ref.watch(activeFlavorProfileProvider);
+    final toneColor =
+        activeFlavor != null
+            ? AppTheme.flavorToneColor(activeFlavor.tone)
+            : Theme.of(context).colorScheme.primary;
+
+    return AppPanel(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.visibility_outlined, size: 20, color: toneColor),
+              const SizedBox(width: 8),
+              Text(
+                'Real-Time Theme Preview',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const Spacer(),
+              AppPillTag(
+                label: activeFlavor?.name ?? 'Default',
+                backgroundColor: toneColor.withValues(alpha: 0.14),
+                foregroundColor: toneColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Changes applied in Flavor Studio dynamically update the entire app\'s color seed and interactive tokens:',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.check_circle_outline, size: 18),
+                label: const Text('Primary Action'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.tune, size: 18),
+                label: const Text('Outlined Action'),
+              ),
+              FilledButton.tonal(
+                onPressed: () {},
+                child: const Text('Tonal Container'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -192,8 +261,9 @@ class _FlavorOverviewCard extends StatelessWidget {
 
 class _FlavorCard extends ConsumerWidget {
   final FlavorProfile profile;
+  final bool isActive;
 
-  const _FlavorCard({required this.profile});
+  const _FlavorCard({required this.profile, required this.isActive});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -202,6 +272,13 @@ class _FlavorCard extends ConsumerWidget {
 
     return Card(
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isActive ? toneColor : Theme.of(context).dividerColor,
+          width: isActive ? 2 : 1,
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -228,11 +305,35 @@ class _FlavorCard extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        profile.name,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.titleLarge?.copyWith(color: Colors.white),
+                      Row(
+                        children: [
+                          Text(
+                            profile.name,
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(color: Colors.white),
+                          ),
+                          if (isActive) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                'ACTIVE',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: toneColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -300,13 +401,30 @@ class _FlavorCard extends ConsumerWidget {
               alignment: MainAxisAlignment.start,
               spacing: 10,
               children: [
-                FilledButton.tonalIcon(
-                  onPressed: () => showModalBottomSheet<void>(
-                    context: context,
-                    isScrollControlled: true,
-                    useSafeArea: true,
-                    builder: (context) => _FlavorEditorSheet(profile: profile),
+                if (!isActive)
+                  FilledButton.icon(
+                    onPressed: () {
+                      ref
+                          .read(flavorProfilesProvider.notifier)
+                          .setActiveFlavor(profile.id);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${profile.name} applied as active theme'),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('Apply Theme'),
                   ),
+                FilledButton.tonalIcon(
+                  onPressed:
+                      () => showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        useSafeArea: true,
+                        builder:
+                            (context) => _FlavorEditorSheet(profile: profile),
+                      ),
                   icon: const Icon(Icons.edit_outlined),
                   label: const Text('Customize'),
                 ),
@@ -370,6 +488,8 @@ class _FlavorEditorSheetState extends ConsumerState<_FlavorEditorSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final liveToneColor = AppTheme.flavorToneColor(_tone);
+    final liveToneSoft = AppTheme.flavorToneSoft(_tone);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(18, 6, 18, bottomInset + 18),
@@ -384,13 +504,38 @@ class _FlavorEditorSheetState extends ConsumerState<_FlavorEditorSheet> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Update the admin-facing copy and tone for this flavor preset.',
+              'Update the admin-facing copy, tone, and live preview.',
               style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: liveToneSoft,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: liveToneColor.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.palette_outlined, color: liveToneColor),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Live Preview: ${_nameController.text.isEmpty ? widget.profile.name : _nameController.text} (${_toneLabel(_tone)})',
+                      style: TextStyle(
+                        color: liveToneColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 18),
             TextField(
               controller: _nameController,
               textCapitalization: TextCapitalization.words,
+              onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 labelText: 'Display name',
                 hintText: 'Enter flavor name',
@@ -399,6 +544,7 @@ class _FlavorEditorSheetState extends ConsumerState<_FlavorEditorSheet> {
             const SizedBox(height: 12),
             TextField(
               controller: _taglineController,
+              onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 labelText: 'Tagline',
                 hintText: 'Short summary',
@@ -409,6 +555,7 @@ class _FlavorEditorSheetState extends ConsumerState<_FlavorEditorSheet> {
               controller: _noteController,
               minLines: 3,
               maxLines: 5,
+              onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 labelText: 'Admin note',
                 hintText: 'Describe where this flavor fits best',

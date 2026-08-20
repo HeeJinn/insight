@@ -72,7 +72,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         margin: const EdgeInsets.symmetric(horizontal: 3),
                         height: 6,
                         decoration: BoxDecoration(
-                          color: _index == i ? AppTheme.accentDark : AppTheme.border,
+                          color: _index == i
+                              ? context.appColors.accentDark
+                              : context.appColors.border,
                           borderRadius: BorderRadius.circular(999),
                         ),
                       ),
@@ -174,10 +176,10 @@ class _OnboardStep extends StatelessWidget {
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) => CircleAvatar(
                   radius: 50,
-                  backgroundColor: AppTheme.accentSoft,
-                  child: const Icon(
+                  backgroundColor: context.appColors.accentSoft,
+                  child: Icon(
                     Icons.auto_awesome_rounded,
-                    color: AppTheme.accentDark,
+                    color: context.appColors.accentDark,
                     size: 40,
                   ),
                 ),

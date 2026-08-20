@@ -577,7 +577,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
                     color: Colors.white.withValues(alpha: 0.95),
                     width: 2.2,
                   ),
-                  boxShadow: AppTheme.panelShadow,
+                  boxShadow: context.appDecorations.panelShadow,
                 ),
                 child: Stack(
                   children: const [
@@ -627,11 +627,11 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
                               ? 'Verified • lock ${_cooldownSecondsLeft}s'
                               : 'Attendance captured',
                           backgroundColor: _recognizedStudent == null
-                              ? AppTheme.accentSoft
-                              : AppTheme.orangeSoft,
+                              ? context.appColors.accentSoft
+                              : context.appColors.orangeSoft,
                           foregroundColor: _recognizedStudent == null
-                              ? AppTheme.accentDark
-                              : AppTheme.orange,
+                              ? context.appColors.accentDark
+                              : context.appColors.orange,
                           padding: EdgeInsets.symmetric(
                             horizontal: compact ? 10 : 14,
                             vertical: compact ? 8 : 10,
@@ -691,9 +691,9 @@ class _ScannerLoadingState extends StatelessWidget {
                 width: 62,
                 height: 62,
                 decoration: BoxDecoration(
-                  gradient: AppTheme.lilacGradient,
+                  gradient: context.appDecorations.accentGradient,
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: AppTheme.panelShadow,
+                  boxShadow: context.appDecorations.panelShadow,
                 ),
                 child: const Icon(
                   Icons.camera_alt_outlined,
@@ -744,9 +744,9 @@ class _ScannerStatePanel extends StatelessWidget {
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(
-                  gradient: AppTheme.orangeGradient,
+                  gradient: context.appDecorations.orangeGradient,
                   borderRadius: BorderRadius.circular(22),
-                  boxShadow: AppTheme.panelShadow,
+                  boxShadow: context.appDecorations.panelShadow,
                 ),
                 child: Icon(icon, color: Colors.white, size: 30),
               ),
