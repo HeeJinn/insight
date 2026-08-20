@@ -105,6 +105,19 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
   }
 
   Future<void> _initializeCamera() async {
+    final oldController = _controller;
+    _controller = null;
+    if (oldController != null) {
+      if (_usesSnapshotScanning || oldController.value.isStreamingImages) {
+        await _stopScanning();
+      }
+      try {
+        await oldController.dispose();
+      } catch (e) {
+        debugPrint('Error disposing old camera controller: $e');
+      }
+    }
+
     try {
       final cameras = await availableCameras();
       if (cameras.isEmpty) {

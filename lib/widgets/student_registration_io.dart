@@ -550,6 +550,16 @@ class _WindowsPhotoCaptureDialogState
       });
     }
 
+    final oldController = _controller;
+    _controller = null;
+    if (oldController != null) {
+      try {
+        await oldController.dispose();
+      } catch (e) {
+        debugPrint('Error disposing existing camera controller: $e');
+      }
+    }
+
     try {
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
@@ -573,13 +583,11 @@ class _WindowsPhotoCaptureDialogState
         return;
       }
 
-      final previousController = _controller;
       setState(() {
         _controller = controller;
         _isInitializing = false;
         _errorMessage = null;
       });
-      await previousController?.dispose();
     } catch (e) {
       if (!mounted) {
         return;
