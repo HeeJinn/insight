@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/router_provider.dart';
 
@@ -29,13 +30,7 @@ class _RootShellScreenState extends State<RootShellScreen> {
     };
   }
 
-  bool _canPopRootNavigator() {
-    final branchNavigator = _activeBranchNavigator();
-    final branchCanPop = branchNavigator?.canPop() ?? false;
-    return widget.navigationShell.currentIndex == 0 && !branchCanPop;
-  }
-
-  void _handleBackIntercept() {
+  Future<void> _handleBackIntercept() async {
     final branchNavigator = _activeBranchNavigator();
     if (branchNavigator != null && branchNavigator.canPop()) {
       branchNavigator.pop();
@@ -43,13 +38,38 @@ class _RootShellScreenState extends State<RootShellScreen> {
     }
     if (widget.navigationShell.currentIndex != 0) {
       widget.navigationShell.goBranch(0);
+      return;
+    }
+
+    final shouldExit =
+        await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Exit app?'),
+            content: const Text('Do you want to close Insight now?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Exit'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (shouldExit) {
+      await SystemNavigator.pop();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: _canPopRootNavigator(),
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         _handleBackIntercept();

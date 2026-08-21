@@ -328,7 +328,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       );
       final mirroredEmbedding = await processor.recognizeFace(mirroredCrop);
       final students = widget.studentsBox.values.toList(growable: false);
-      return processor.recognizeStudent(
+      return await processor.recognizeStudent(
         students,
         embedding,
         threshold: threshold,

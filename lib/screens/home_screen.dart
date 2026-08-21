@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_ce/hive.dart';
@@ -22,41 +21,11 @@ class HomeScreen extends ConsumerWidget {
     final attendanceAsync = ref.watch(attendanceBoxProvider);
     final sessions = ref.watch(sessionsProvider);
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) {
-          return;
-        }
-        final shouldExit =
-            await showDialog<bool>(
-              context: context,
-              builder: (dialogContext) => AlertDialog(
-                title: const Text('Exit app?'),
-                content: const Text('Do you want to close Insight now?'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(false),
-                    child: const Text('Cancel'),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(true),
-                    child: const Text('Exit'),
-                  ),
-                ],
-              ),
-            ) ??
-            false;
-
-        if (shouldExit) {
-          await SystemNavigator.pop();
-        }
-      },
-      child: Scaffold(
-        resizeToAvoidBottomInset: false,
-        body: AppBackground(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
+      body: AppBackground(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
               final width = constraints.maxWidth;
               final compact = AppBreakpoints.isCompact(width);
               final contentWidth = AppBreakpoints.contentWidth(width);
@@ -170,8 +139,7 @@ class HomeScreen extends ConsumerWidget {
             },
           ),
         ),
-      ),
-    );
+      );
   }
 }
 

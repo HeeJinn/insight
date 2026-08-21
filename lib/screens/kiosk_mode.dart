@@ -21,14 +21,28 @@ class KioskMode extends ConsumerWidget {
       return const UnsupportedPlatformScreen(featureName: 'Kiosk Mode');
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: BackButton(
-          onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+    void handleBack() {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/');
+      }
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        handleBack();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: BackButton(
+            onPressed: handleBack,
+          ),
+          title: const Text('Kiosk'),
         ),
-        title: const Text('Kiosk'),
-      ),
-      body: AppBackground(
+        body: AppBackground(
         child: studentsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stack) => _KioskStateMessage(message: 'Error: $error'),
@@ -108,7 +122,8 @@ class KioskMode extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
