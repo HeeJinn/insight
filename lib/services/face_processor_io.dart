@@ -59,20 +59,76 @@ class FaceProcessor {
   img.Image convertCameraImage(CameraImage cameraImage) {
     final int width = cameraImage.width;
     final int height = cameraImage.height;
-    final img.Image image = img.Image(width: width, height: height);
 
+    // Handle single-plane images (e.g. BGRA8888 on iOS / macOS / Windows)
+    if (cameraImage.planes.length == 1) {
+      final plane = cameraImage.planes.first;
+      final bytes = plane.bytes;
+      final bytesPerRow = plane.bytesPerRow;
+      final bytesPerPixel = plane.bytesPerPixel ?? 4;
+      final img.Image image = img.Image(width: width, height: height);
+
+      final isBgra = cameraImage.format.group == ImageFormatGroup.bgra8888;
+      for (int y = 0; y < height; y++) {
+        final rowOffset = y * bytesPerRow;
+        for (int x = 0; x < width; x++) {
+          final index = rowOffset + (x * bytesPerPixel);
+          if (index + 2 < bytes.length) {
+            final int r;
+            final int g;
+            final int b;
+            if (isBgra) {
+              b = bytes[index];
+              g = bytes[index + 1];
+              r = bytes[index + 2];
+            } else {
+              r = bytes[index];
+              g = bytes[index + 1];
+              b = bytes[index + 2];
+            }
+            image.setPixelRgb(x, y, r, g, b);
+          }
+        }
+      }
+      return image;
+    }
+
+    // Handle multi-plane YUV420 images (e.g. Android YUV420_888)
+    final img.Image image = img.Image(width: width, height: height);
     final Plane yPlane = cameraImage.planes[0];
     final Plane uPlane = cameraImage.planes[1];
-    final Plane vPlane = cameraImage.planes[2];
+    final Plane vPlane = cameraImage.planes.length > 2
+        ? cameraImage.planes[2]
+        : cameraImage.planes[1];
+
+    final int yRowStride = yPlane.bytesPerRow;
+    final int uRowStride = uPlane.bytesPerRow;
+    final int vRowStride = vPlane.bytesPerRow;
+
+    final int uPixelStride = uPlane.bytesPerPixel ?? 1;
+    final int vPixelStride = vPlane.bytesPerPixel ?? 1;
 
     for (int y = 0; y < height; y++) {
+      final int yOffset = y * yRowStride;
+      final int uvRow = y ~/ 2;
+      final int uRowOffset = uvRow * uRowStride;
+      final int vRowOffset = uvRow * vRowStride;
+
       for (int x = 0; x < width; x++) {
-        final int yIndex = y * yPlane.bytesPerRow + x;
-        final int uvIndex = (y ~/ 2) * uPlane.bytesPerRow + (x ~/ 2);
+        final int yIndex = yOffset + x;
+        final int uvCol = x ~/ 2;
+        final int uIndex = uRowOffset + (uvCol * uPixelStride);
+        final int vIndex = vRowOffset + (uvCol * vPixelStride);
+
+        if (yIndex >= yPlane.bytes.length ||
+            uIndex >= uPlane.bytes.length ||
+            vIndex >= vPlane.bytes.length) {
+          continue;
+        }
 
         final int yValue = yPlane.bytes[yIndex];
-        final int uValue = uPlane.bytes[uvIndex];
-        final int vValue = vPlane.bytes[uvIndex];
+        final int uValue = uPlane.bytes[uIndex];
+        final int vValue = vPlane.bytes[vIndex];
 
         final int r = (yValue + 1.402 * (vValue - 128)).clamp(0, 255).toInt();
         final int g =
@@ -81,7 +137,7 @@ class FaceProcessor {
                 .toInt();
         final int b = (yValue + 1.772 * (uValue - 128)).clamp(0, 255).toInt();
 
-        image.setPixel(x, y, img.ColorRgb8(r, g, b));
+        image.setPixelRgb(x, y, r, g, b);
       }
     }
 

@@ -28,5 +28,7 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Insight needs camera access for biometric face attendance scanning and student registration.</string>
 </dict>
 </plist>

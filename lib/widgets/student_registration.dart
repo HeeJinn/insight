@@ -1,2 +1,2 @@
-export 'student_registration_io.dart'
-    if (dart.library.html) 'student_registration_web.dart';
+export 'student_registration_web.dart'
+    if (dart.library.io) 'student_registration_io.dart';

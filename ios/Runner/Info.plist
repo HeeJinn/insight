@@ -66,5 +66,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Insight needs camera access for biometric face attendance scanning and student registration.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Insight needs photo library access to upload student profile pictures.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Insight requires microphone access when operating the camera feed.</string>
 </dict>
 </plist>

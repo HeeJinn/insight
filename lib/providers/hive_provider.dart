@@ -14,9 +14,13 @@ final hiveInitProvider = FutureProvider<void>((ref) async {
     Hive.init('');
   }
 
-  // Register adapters
-  Hive.registerAdapter(StudentAdapter());
-  Hive.registerAdapter(AttendanceAdapter());
+  // Register adapters safely
+  if (!Hive.isAdapterRegistered(0)) {
+    Hive.registerAdapter(StudentAdapter());
+  }
+  if (!Hive.isAdapterRegistered(1)) {
+    Hive.registerAdapter(AttendanceAdapter());
+  }
 });
 
 // Provider for students box

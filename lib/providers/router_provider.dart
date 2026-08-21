@@ -32,8 +32,19 @@ final adminBranchNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'adminBranchNavigator',
 );
 
+class _RouterRefreshNotifier extends ChangeNotifier {
+  final Ref _ref;
+  _RouterRefreshNotifier(this._ref) {
+    _ref.listen(onboardingDoneProvider, (previous, next) => notifyListeners());
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
+  final refreshNotifier = _RouterRefreshNotifier(ref);
+  ref.onDispose(refreshNotifier.dispose);
+
   return GoRouter(
+    refreshListenable: refreshNotifier,
     redirect: (context, state) {
       final onboardingDone = ref.read(onboardingDoneProvider);
       final isOnboarding = state.matchedLocation == '/onboarding';

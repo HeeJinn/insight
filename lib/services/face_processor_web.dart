@@ -23,10 +23,16 @@ class FaceProcessor {
 
   img.Image cropFace(img.Image image, List<double> bbox) => image;
 
+  img.Image rotateImage(img.Image image, {required int rotationDegrees}) =>
+      image;
+
+  img.Image flipImageHorizontally(img.Image image) => image;
+
   Future<String?> recognizeStudent(
     List<Student> students,
     List<double> liveEmbedding, {
     double threshold = 0.8,
+    Iterable<List<double>> alternateEmbeddings = const [],
   }) async {
     return null;
   }

@@ -46,7 +46,7 @@ dependencies:
   camera_windows: ^0.2.6+4
 
   # ML inference
-  tflite_flutter: ^0.10.4
+  tflite_flutter: ^0.12.1
 
   # Image processing
   image: ^4.2.0
