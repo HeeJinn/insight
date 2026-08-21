@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hive_ce/hive.dart';
-import '../app_theme.dart';
-import '../models/attendance.dart';
-import '../models/flavor_profile.dart';
-import '../models/student.dart';
 import '../providers/flavor_profiles_provider.dart';
 import '../providers/hive_provider.dart';
 import '../widgets/app_chrome.dart';
@@ -62,46 +57,52 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
                   child: ConstrainedBox(
                     constraints: BoxConstraints(maxWidth: contentWidth),
                     child: Padding(
-                      padding: padding,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: compact ? 16 : padding.horizontal / 2,
+                        vertical: 8,
+                      ),
                       child: Column(
                         children: [
-                          _AdminTitleHeader(
-                            title: 'Admin',
-                            subtitle:
-                                'Manage registration flow, logs, and kiosk controls',
+                          // 1. Clean Top Header
+                          _AdminM3Header(
                             onShowInfo: _showAdminInfo,
                             onOpenKiosk: () => context.push('/kiosk'),
                             onOpenSettings: () => context.push('/settings'),
                           ),
                           const SizedBox(height: 12),
+
+                          // 2. Overview Stats Row
+                          _OverviewMetricsRow(
+                            studentCount: studentsBox.length,
+                            attendanceCount: attendanceBox.length,
+                            liveFlavorCount: flavors.where((f) => f.enabled).length,
+                          ),
+                          const SizedBox(height: 12),
+
+                          // 3. Segmented Navigation Bar
+                          _M3SegmentedTabBar(
+                            tabController: _tabController,
+                            logCount: attendanceBox.length,
+                          ),
+                          const SizedBox(height: 8),
+
+                          // 4. Tab Content
                           Expanded(
-                            child: NestedScrollView(
-                              headerSliverBuilder: (context, _) => [
-                                SliverToBoxAdapter(
-                                  child: _TopActionsBar(
-                                    studentCount: studentsBox.length,
-                                    attendanceCount: attendanceBox.length,
-                                    flavors: flavors,
-                                  ),
+                            child: TabBarView(
+                              controller: _tabController,
+                              children: [
+                                const SingleChildScrollView(
+                                  padding: EdgeInsets.only(bottom: 16),
+                                  child: StudentRegistration(),
                                 ),
-                                const SliverToBoxAdapter(
-                                  child: SizedBox(height: 10),
-                                ),
-                                SliverPersistentHeader(
-                                  pinned: true,
-                                  delegate: _TabBarHeaderDelegate(
-                                    child: _DashboardTabBar(
-                                      compact: compact,
-                                      tabController: _tabController,
-                                    ),
+                                StreamBuilder(
+                                  stream: attendanceBox.watch(),
+                                  builder: (context, _) => AttendanceLogs(
+                                    attendanceBox: attendanceBox,
+                                    studentsBox: studentsBox,
                                   ),
                                 ),
                               ],
-                              body: _DashboardTabView(
-                                tabController: _tabController,
-                                studentsBox: studentsBox,
-                                attendanceBox: attendanceBox,
-                              ),
                             ),
                           ),
                         ],
@@ -121,14 +122,14 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Admin'),
+        title: const Text('Admin Console'),
         content: const Text(
-          'Registration, student data, and attendance logs.',
+          'Manage student face registration, review recognition logs, and launch the kiosk terminal.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: const Text('Done'),
           ),
         ],
       ),
@@ -136,16 +137,12 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
   }
 }
 
-class _AdminTitleHeader extends StatelessWidget {
-  final String title;
-  final String subtitle;
+class _AdminM3Header extends StatelessWidget {
   final VoidCallback onShowInfo;
   final VoidCallback onOpenKiosk;
   final VoidCallback onOpenSettings;
 
-  const _AdminTitleHeader({
-    required this.title,
-    required this.subtitle,
+  const _AdminM3Header({
     required this.onShowInfo,
     required this.onOpenKiosk,
     required this.onOpenSettings,
@@ -153,382 +150,94 @@ class _AdminTitleHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = AppBreakpoints.isCompact(MediaQuery.sizeOf(context).width);
-    final now = DateTime.now();
-    final dateLabel =
-        '${_weekdayShort(now.weekday)}, ${_monthShort(now.month)} ${now.day}';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: compact
-                        ? Theme.of(context).textTheme.headlineMedium
-                        : Theme.of(context).textTheme.headlineLarge,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            _TopIconAction(
-              icon: Icons.info_outline,
-              tooltip: 'About this page',
-              onPressed: onShowInfo,
-            ),
-            const SizedBox(width: 6),
-            _TopIconAction(
-              icon: Icons.camera_alt_outlined,
-              tooltip: 'Kiosk',
-              onPressed: onOpenKiosk,
-            ),
-            const SizedBox(width: 6),
-            _TopIconAction(
-              icon: Icons.tune_outlined,
-              tooltip: 'Settings',
-              onPressed: onOpenSettings,
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.35),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Theme.of(context).dividerColor),
-          ),
-          child: Row(
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.calendar_today_outlined,
-                size: 16,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 8),
               Text(
-                dateLabel,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
+                'Admin',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 2),
               Text(
-                'Admin workspace',
+                'Kiosk #04 · Facial Attendance Terminal',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
           ),
+        ),
+        IconButton.filledTonal(
+          icon: const Icon(Icons.info_outline, size: 18),
+          tooltip: 'About',
+          onPressed: onShowInfo,
+        ),
+        const SizedBox(width: 6),
+        IconButton.filled(
+          icon: const Icon(Icons.camera_alt_outlined, size: 18),
+          tooltip: 'Launch Kiosk',
+          onPressed: onOpenKiosk,
+        ),
+        const SizedBox(width: 6),
+        IconButton.filledTonal(
+          icon: const Icon(Icons.tune, size: 18),
+          tooltip: 'Settings',
+          onPressed: onOpenSettings,
         ),
       ],
     );
   }
 }
 
-class _TopActionsBar extends StatelessWidget {
+class _OverviewMetricsRow extends StatelessWidget {
   final int studentCount;
   final int attendanceCount;
-  final List<FlavorProfile> flavors;
+  final int liveFlavorCount;
 
-  const _TopActionsBar({
+  const _OverviewMetricsRow({
     required this.studentCount,
     required this.attendanceCount,
-    required this.flavors,
+    required this.liveFlavorCount,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    final liveFlavors = flavors.where((profile) => profile.enabled).length;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.32),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Overview', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _MetricMiniTile(
-                  label: 'Students',
-                  value: '$studentCount',
-                  icon: Icons.groups_2_outlined,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _MetricMiniTile(
-                  label: 'Check-ins',
-                  value: '$attendanceCount',
-                  icon: Icons.event_note_outlined,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _MetricMiniTile(
-                  label: 'Live flavors',
-                  value: '$liveFlavors',
-                  icon: Icons.palette_outlined,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _QuickNavButton(
-                icon: Icons.query_stats_outlined,
-                label: 'Insights',
-                onPressed: () => context.go('/insights'),
-              ),
-              _QuickNavButton(
-                icon: Icons.groups_outlined,
-                label: 'Students',
-                onPressed: () => context.go('/students'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricMiniTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _MetricMiniTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: context.appColors.mutedText),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickNavButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-
-  const _QuickNavButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton.tonalIcon(
-      onPressed: onPressed,
-      style: FilledButton.styleFrom(
-        minimumSize: const Size(0, 38),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.compact,
-      ),
-      icon: Icon(icon, size: 18),
-      label: Text(label),
-    );
-  }
-}
-
-class _TopIconAction extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  const _TopIconAction({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton.filledTonal(
-      onPressed: onPressed,
-      tooltip: tooltip,
-      style: IconButton.styleFrom(
-        minimumSize: const Size(36, 36),
-        padding: const EdgeInsets.all(8),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.compact,
-      ),
-      icon: Icon(icon, size: 18),
-    );
-  }
-}
-
-class _DashboardTabBar extends StatelessWidget {
-  final bool compact;
-  final TabController tabController;
-
-  const _DashboardTabBar({required this.compact, required this.tabController});
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.96),
-      padding: const EdgeInsets.only(top: 4),
-      child: TabBar(
-        controller: tabController,
-        isScrollable: compact,
-        tabAlignment: compact ? TabAlignment.start : TabAlignment.fill,
-        dividerColor: Colors.transparent,
-        indicatorColor: scheme.primary,
-        indicatorWeight: 2.5,
-        labelColor: scheme.onSurface,
-        unselectedLabelColor: scheme.onSurfaceVariant,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-        tabs: [
-          const Tab(
-            icon: Icon(Icons.person_add_alt_1_outlined),
-            text: 'Register',
-          ),
-          const Tab(icon: Icon(Icons.event_note_outlined), text: 'Logs'),
-        ],
-      ),
-    );
-  }
-}
 
-String _weekdayShort(int weekday) {
-  const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  return names[(weekday - 1).clamp(0, 6)];
-}
-
-String _monthShort(int month) {
-  const names = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  return names[(month - 1).clamp(0, 11)];
-}
-
-class _DashboardCardFrame extends StatelessWidget {
-  final Widget child;
-
-  const _DashboardCardFrame({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return AppPanel(
-      radius: 16,
-      padding: const EdgeInsets.all(12),
-      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.30),
-      child: child,
-    );
-  }
-}
-
-class _DashboardTabView extends StatelessWidget {
-  final TabController tabController;
-  final Box<Student> studentsBox;
-  final Box<Attendance> attendanceBox;
-
-  const _DashboardTabView({
-    required this.tabController,
-    required this.studentsBox,
-    required this.attendanceBox,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TabBarView(
-      controller: tabController,
+    return Row(
       children: [
-        _DashboardScrollFrame(
-          child: _DashboardCardFrame(
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1040),
-                child: const StudentRegistration(),
-              ),
-            ),
+        Expanded(
+          child: _M3MetricTile(
+            label: 'Students',
+            value: '$studentCount',
+            icon: Icons.people_alt_outlined,
+            color: scheme.primary,
           ),
         ),
-        _DashboardScrollFrame(
-          child: _DashboardCardFrame(
-            child: StreamBuilder(
-              stream: attendanceBox.watch(),
-              builder: (context, _) => AttendanceLogs(
-                attendanceBox: attendanceBox,
-                studentsBox: studentsBox,
-              ),
-            ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _M3MetricTile(
+            label: 'Check-ins',
+            value: '$attendanceCount',
+            icon: Icons.check_circle_outline,
+            color: Colors.greenAccent.shade400,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _M3MetricTile(
+            label: 'Profiles',
+            value: '$liveFlavorCount',
+            icon: Icons.face_retouching_natural,
+            color: Colors.amberAccent.shade400,
           ),
         ),
       ],
@@ -536,51 +245,180 @@ class _DashboardTabView extends StatelessWidget {
   }
 }
 
-class _DashboardScrollFrame extends StatelessWidget {
-  final Widget child;
+class _M3MetricTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
 
-  const _DashboardScrollFrame({required this.child});
+  const _M3MetricTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.only(top: 4, bottom: 8),
-      child: child,
-    );
-  }
-}
+    final scheme = Theme.of(context).colorScheme;
 
-class _TabBarHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final Widget child;
-
-  const _TabBarHeaderDelegate({required this.child});
-
-  @override
-  double get minExtent => 56;
-
-  @override
-  double get maxExtent => 56;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return DecoratedBox(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.3),
         ),
       ),
-      child: child,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
+}
+
+class _M3SegmentedTabBar extends StatelessWidget {
+  final TabController tabController;
+  final int logCount;
+
+  const _M3SegmentedTabBar({
+    required this.tabController,
+    required this.logCount,
+  });
 
   @override
-  bool shouldRebuild(covariant _TabBarHeaderDelegate oldDelegate) {
-    return child != oldDelegate.child;
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.25),
+        ),
+      ),
+      child: AnimatedBuilder(
+        animation: tabController,
+        builder: (context, _) {
+          final isRegistration = tabController.index == 0;
+          return Row(
+            children: [
+              Expanded(
+                child: _SegmentButton(
+                  icon: Icons.person_add_alt_1,
+                  label: 'Registration',
+                  isSelected: isRegistration,
+                  onTap: () => tabController.animateTo(0),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: _SegmentButton(
+                  icon: Icons.list_alt_rounded,
+                  label: 'Logs ($logCount)',
+                  isSelected: !isRegistration,
+                  onTap: () => tabController.animateTo(1),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 }
+
+class _SegmentButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _SegmentButton({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: isSelected ? scheme.surfaceContainerHighest : Colors.transparent,
+      borderRadius: BorderRadius.circular(9),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(9),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(9),
+            border: isSelected
+                ? Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5))
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? scheme.onSurface : scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+

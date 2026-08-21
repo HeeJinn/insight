@@ -6,12 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:image_picker/image_picker.dart';
-import '../app_theme.dart';
 import '../models/student.dart';
 import '../providers/hive_provider.dart';
 import '../services/face_processor.dart';
-import 'app_chrome.dart';
-import 'responsive_utils.dart';
 
 class StudentRegistration extends ConsumerStatefulWidget {
   const StudentRegistration({super.key});
@@ -96,7 +93,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
     if (!_formKey.currentState!.validate() || _photos.length != 5) {
       setState(() {
         _feedbackIsError = true;
-        _feedbackMessage = 'Complete the form and capture 5 photos first.';
+        _feedbackMessage = 'Complete identity details and capture all 5 face angles first.';
       });
       return;
     }
@@ -107,10 +104,10 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
     if (studentsBox.containsKey(studentId)) {
       setState(() {
         _feedbackIsError = true;
-        _feedbackMessage = 'That student ID already exists.';
+        _feedbackMessage = 'Student ID "$studentId" is already registered.';
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Student ID already exists')),
+        SnackBar(content: Text('Student ID "$studentId" already exists')),
       );
       return;
     }
@@ -118,7 +115,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
     setState(() {
       _isProcessing = true;
       _feedbackIsError = false;
-      _feedbackMessage = 'Processing face samples and saving student data...';
+      _feedbackMessage = 'Generating 512-d facial embeddings and saving profile...';
     });
 
     final faceProcessor = FaceProcessor();
@@ -142,11 +139,14 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
       setState(() {
         _photos.clear();
         _feedbackIsError = false;
-        _feedbackMessage = 'Student registered successfully.';
+        _feedbackMessage = 'Student "$studentName" successfully registered with 5 biometric vectors.';
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Student registered successfully')),
+        SnackBar(
+          content: Text('Biometric profile for "$studentName" created successfully'),
+          backgroundColor: const Color(0xFF10B981),
+        ),
       );
     } catch (e) {
       if (!mounted) {
@@ -156,7 +156,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
       setState(() {
         _feedbackIsError = true;
         _feedbackMessage =
-            'Registration failed. The app switched to safe mode, but this photo set still could not be processed. Details: $e';
+            'Registration failed. Could not process face embeddings. Details: $e';
       });
 
       ScaffoldMessenger.of(
@@ -185,341 +185,384 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
   @override
   Widget build(BuildContext context) {
     final studentsAsync = ref.watch(studentsBoxProvider);
+    final photoCount = _photos.length;
+    final hasId = _idController.text.trim().isNotEmpty;
+    final hasName = _nameController.text.trim().isNotEmpty;
+    final isReady = hasId && hasName && photoCount == 5;
+    final scheme = Theme.of(context).colorScheme;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final compact = AppBreakpoints.isCompact(width);
-        final wide = width >= 920;
-        final progress = _photos.length / 5;
+        final wide = constraints.maxWidth >= 720;
 
         return Form(
           key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _RegistrationHeroHeader(
-                compact: compact,
-                photoCount: _photos.length,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(alpha: 0.3),
               ),
-              SizedBox(height: compact ? 8 : 12),
-              if (wide)
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header & Step Progress
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: _buildDetailsCard(context, wide)),
-                    const SizedBox(width: 24),
-                    Expanded(child: _buildCaptureCard(context, progress)),
+                    Icon(Icons.person_add_rounded, size: 20, color: scheme.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Student Registration',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: scheme.primaryContainer.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '$photoCount/5 Photos',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: scheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                   ],
-                )
-              else ...[
-                _buildDetailsCard(context, wide),
-                const SizedBox(height: 20),
-                _buildCaptureCard(context, progress),
-              ],
-              if (_feedbackMessage != null) ...[
+                ),
+                const SizedBox(height: 16),
+
+                // Form Fields
+                if (wide)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _M3InputField(
+                          controller: _idController,
+                          label: 'Student ID',
+                          hint: 'e.g. 2026-CS-0841',
+                          icon: Icons.badge_outlined,
+                          onChanged: (_) => setState(() {}),
+                          validator: (v) =>
+                              v?.trim().isEmpty ?? true ? 'Student ID is required' : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _M3InputField(
+                          controller: _nameController,
+                          label: 'Full Name',
+                          hint: 'e.g. Marcus Vance',
+                          icon: Icons.person_outline,
+                          onChanged: (_) => setState(() {}),
+                          validator: (v) =>
+                              v?.trim().isEmpty ?? true ? 'Full name is required' : null,
+                        ),
+                      ),
+                    ],
+                  )
+                else ...[
+                  _M3InputField(
+                    controller: _idController,
+                    label: 'Student ID',
+                    hint: 'e.g. 2026-CS-0841',
+                    icon: Icons.badge_outlined,
+                    onChanged: (_) => setState(() {}),
+                    validator: (v) =>
+                        v?.trim().isEmpty ?? true ? 'Student ID is required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  _M3InputField(
+                    controller: _nameController,
+                    label: 'Full Name',
+                    hint: 'e.g. Marcus Vance',
+                    icon: Icons.person_outline,
+                    onChanged: (_) => setState(() {}),
+                    validator: (v) =>
+                        v?.trim().isEmpty ?? true ? 'Full name is required' : null,
+                  ),
+                ],
+
+                const SizedBox(height: 16),
+                const Divider(height: 1),
                 const SizedBox(height: 14),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: _feedbackIsError
-                        ? Theme.of(context).colorScheme.errorContainer
-                        : Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    _feedbackMessage!,
-                    style: TextStyle(
+
+                // Face Photo Action Bar
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: photoCount < 5 && !_isProcessing
+                            ? () => _pickImage(ImageSource.camera)
+                            : null,
+                        icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                        label: const Text('Camera'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: photoCount < 5 && !_isProcessing
+                            ? () => _pickImage(ImageSource.gallery)
+                            : null,
+                        icon: const Icon(Icons.photo_library_outlined, size: 16),
+                        label: const Text('Gallery'),
+                      ),
+                    ),
+                    if (photoCount > 0) ...[
+                      const SizedBox(width: 6),
+                      IconButton(
+                        onPressed: _isProcessing ? null : _clearPhotos,
+                        tooltip: 'Reset Photos',
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // 5-Slot Target Photo Grid
+                _FaceAngleSlotsGrid(
+                  photos: _photos,
+                  onRemovePhoto: _isProcessing ? null : _removePhoto,
+                ),
+
+                // Feedback message
+                if (_feedbackMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
                       color: _feedbackIsError
-                          ? Theme.of(context).colorScheme.onErrorContainer
-                          : Theme.of(context).colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w700,
-                      height: 1.45,
+                          ? scheme.errorContainer
+                          : scheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _feedbackIsError ? Icons.error_outline : Icons.check_circle_outline,
+                          color: _feedbackIsError ? scheme.onErrorContainer : scheme.onPrimaryContainer,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _feedbackMessage!,
+                            style: TextStyle(
+                              color: _feedbackIsError ? scheme.onErrorContainer : scheme.onPrimaryContainer,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                ],
+
+                const SizedBox(height: 16),
+
+                // Submit Button
+                studentsAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (error, stack) => Text('Error: $error', style: const TextStyle(color: Colors.red)),
+                  data: (studentsBox) {
+                    return SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: FilledButton.icon(
+                        onPressed: isReady && !_isProcessing
+                            ? () => _registerStudent(studentsBox)
+                            : null,
+                        icon: _isProcessing
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.fingerprint_rounded, size: 18),
+                        label: Text(
+                          _isProcessing
+                              ? 'Saving Biometric Profile...'
+                              : isReady
+                                  ? 'Register Student'
+                                  : 'Complete ID, Name & 5 Photos to Register',
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
-              const SizedBox(height: 14),
-              studentsAsync.when(
-                loading: () => const CircularProgressIndicator(),
-                error: (error, stack) => Text('Error: $error'),
-                data: (studentsBox) => SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _isProcessing
-                        ? null
-                        : () => _registerStudent(studentsBox),
-                    icon: _isProcessing
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.person_add_alt_1_outlined),
-                    label: Text(
-                      _isProcessing
-                          ? 'Creating biometric profile...'
-                          : 'Register Student',
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         );
       },
     );
   }
+}
 
-  Widget _buildDetailsCard(BuildContext context, bool wide) {
-    final fields = [
-      TextFormField(
-        controller: _idController,
-        keyboardType: TextInputType.number,
-        onTapOutside: (_) => FocusScope.of(context).unfocus(),
-        decoration: const InputDecoration(
-          labelText: 'Student ID',
-          hintText: 'Enter school ID number',
-        ),
-        validator: (value) => value?.trim().isEmpty ?? true ? 'Required' : null,
-      ),
-      TextFormField(
-        controller: _nameController,
-        onTapOutside: (_) => FocusScope.of(context).unfocus(),
-        decoration: const InputDecoration(
-          labelText: 'Student name',
-          hintText: 'Enter full name',
-        ),
-        validator: (value) => value?.trim().isEmpty ?? true ? 'Required' : null,
-      ),
-    ];
+class _M3InputField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final IconData icon;
+  final ValueChanged<String>? onChanged;
+  final FormFieldValidator<String>? validator;
 
-    return _RegistrationSection(
-      title: 'Identity details',
-      subtitle:
-          'Enter official student details before creating the face profile.',
-      accent: context.appColors.blue,
-      showDivider: true,
-      child: wide
-          ? Row(
-              children: [
-                Expanded(child: fields[0]),
-                const SizedBox(width: 14),
-                Expanded(child: fields[1]),
-              ],
-            )
-          : Column(
-              children: [fields[0], const SizedBox(height: 12), fields[1]],
-            ),
+  const _M3InputField({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.icon,
+    this.onChanged,
+    this.validator,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      onChanged: onChanged,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon, size: 18),
+        filled: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
     );
   }
+}
 
-  Widget _buildCaptureCard(BuildContext context, double progress) {
-    return _RegistrationSection(
-      title: 'Face capture set',
-      subtitle:
-          'Capture 5 clear photos from different angles for stronger local matching.',
-      accent: context.appColors.orange,
-      showDivider: false,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Capture progress',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSecondaryContainer,
+class _FaceAngleSlotsGrid extends StatelessWidget {
+  final List<File> photos;
+  final ValueChanged<int>? onRemovePhoto;
+
+  const _FaceAngleSlotsGrid({
+    required this.photos,
+    required this.onRemovePhoto,
+  });
+
+  static const _slotLabels = [
+    'Front (0°)',
+    'Left (45°)',
+    'Right (45°)',
+    'Tilt Up',
+    'Tilt Down',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final itemWidth = (constraints.maxWidth - 4 * 8) / 5;
+        final slotSize = itemWidth.clamp(58.0, 110.0);
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(5, (index) {
+            final hasPhoto = index < photos.length;
+            final file = hasPhoto ? photos[index] : null;
+
+            return SizedBox(
+              width: slotSize,
+              child: Column(
+                children: [
+                  Container(
+                    height: slotSize * 1.15,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF141723),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: hasPhoto
+                            ? const Color(0xFF34D399)
+                            : const Color(0xFF262C3E),
+                        width: hasPhoto ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Stack(
+                      children: [
+                        if (hasPhoto && file != null) ...[
+                          Positioned.fill(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(7),
+                              child: Image.file(file, fit: BoxFit.cover),
                             ),
-                      ),
-                    ),
-                    Text(
-                      '${(progress * 100).round()}%',
-                      style: TextStyle(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSecondaryContainer,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    minHeight: 10,
-                    value: progress,
-                    backgroundColor: Theme.of(context)
-                        .colorScheme
-                        .outlineVariant
-                        .withValues(alpha: 0.35),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    FilledButton.tonalIcon(
-                      onPressed: _photos.length < 5 && !_isProcessing
-                          ? () => _pickImage(ImageSource.camera)
-                          : null,
-                      icon: const Icon(Icons.camera_alt_outlined),
-                      label: const Text('Capture Photo'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: _photos.length < 5 && !_isProcessing
-                          ? () => _pickImage(ImageSource.gallery)
-                          : null,
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Theme.of(
-                          context,
-                        ).colorScheme.surface.withValues(alpha: 0.4),
-                        foregroundColor: Theme.of(context).colorScheme.onSurface,
-                        side: BorderSide(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .outlineVariant
-                              .withValues(alpha: 0.24),
-                        ),
-                      ),
-                      icon: const Icon(Icons.photo_library_outlined),
-                      label: const Text('Upload gallery'),
-                    ),
-                    if (_photos.isNotEmpty)
-                      OutlinedButton.icon(
-                        onPressed: _isProcessing ? null : _clearPhotos,
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.surface.withValues(alpha: 0.4),
-                          foregroundColor: Theme.of(context).colorScheme.onSurface,
-                          side: BorderSide(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .outlineVariant
-                                .withValues(alpha: 0.24),
                           ),
-                        ),
-                        icon: const Icon(Icons.refresh_outlined),
-                        label: const Text('Clear all'),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (_photos.isNotEmpty)
-            SizedBox(
-              height: 118,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _photos.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (context, index) {
-                  return Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.file(
-                          _photos[index],
-                          width: 102,
-                          height: 118,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      Positioned(
-                        top: 8,
-                        left: 8,
-                        child: AppPillTag(
-                          label: '#${index + 1}',
-                          backgroundColor: context.appColors.elevatedSurface.withValues(alpha: 0.94),
-                          foregroundColor: context.appColors.primaryText,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 6,
-                        top: 6,
-                        child: Material(
-                          color: Colors.black.withValues(alpha: 0.32),
-                          shape: const CircleBorder(),
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: _isProcessing
-                                ? null
-                                : () => _removePhoto(index),
-                            child: const Padding(
-                              padding: EdgeInsets.all(6),
-                              child: Icon(
-                                Icons.close,
-                                size: 16,
-                                color: Colors.white,
+                          if (onRemovePhoto != null)
+                            Positioned(
+                              top: 3,
+                              right: 3,
+                              child: GestureDetector(
+                                onTap: () => onRemovePhoto!(index),
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black87,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close, size: 11, color: Colors.white),
+                                ),
                               ),
                             ),
+                        ] else
+                          Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.add_a_photo_outlined,
+                                  size: 16,
+                                  color: const Color(0xFF4A5268),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '#${index + 1}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.tips_and_updates_outlined,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Best results come from one front-facing photo, two slight side angles, and two neutral expressions in even lighting.',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      height: 1.5,
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _slotLabels[index],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: hasPhoto ? FontWeight.w700 : FontWeight.w500,
+                      color: hasPhoto ? const Color(0xFF34D399) : const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }
@@ -637,6 +680,11 @@ class _WindowsPhotoCaptureDialogState
     final preview = _controller;
 
     return Dialog(
+      backgroundColor: const Color(0xFF131620),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFF232738)),
+      ),
       insetPadding: const EdgeInsets.all(24),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 860, maxHeight: 660),
@@ -645,24 +693,28 @@ class _WindowsPhotoCaptureDialogState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Capture Photo',
-                style: Theme.of(context).textTheme.headlineSmall,
+              const Text(
+                'Biometric Photo Capture',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Use the built-in camera preview to take a new registration photo on Windows.',
-                style: Theme.of(context).textTheme.bodyMedium,
+              const SizedBox(height: 4),
+              const Text(
+                'Align student face inside the frame. Maintain neutral expression and adequate lighting.',
+                style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               Expanded(
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(28),
+                  borderRadius: BorderRadius.circular(14),
                   child: ColoredBox(
                     color: Colors.black,
                     child: Center(
                       child: _isInitializing
-                          ? const CircularProgressIndicator()
+                          ? const CircularProgressIndicator(color: Color(0xFF6366F1))
                           : _errorMessage != null
                           ? Padding(
                               padding: const EdgeInsets.all(24),
@@ -685,7 +737,7 @@ class _WindowsPhotoCaptureDialogState
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
@@ -695,30 +747,39 @@ class _WindowsPhotoCaptureDialogState
                     onPressed: _isCapturing
                         ? null
                         : () => Navigator.of(context).pop(),
+                    style: TextButton.styleFrom(foregroundColor: const Color(0xFF94A3B8)),
                     child: const Text('Cancel'),
                   ),
                   OutlinedButton.icon(
                     onPressed: _isCapturing ? null : _initializeCamera,
-                    icon: const Icon(Icons.refresh_outlined),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFCBD5E1),
+                      side: const BorderSide(color: Color(0xFF272F44)),
+                    ),
+                    icon: const Icon(Icons.refresh_outlined, size: 16),
                     label: const Text('Retry Camera'),
                   ),
-                  ElevatedButton.icon(
+                  FilledButton.icon(
                     onPressed:
                         _isInitializing || _errorMessage != null || _isCapturing
                         ? null
                         : _capturePhoto,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF6366F1),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
                     icon: _isCapturing
                         ? const SizedBox(
-                            width: 18,
-                            height: 18,
+                            width: 16,
+                            height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               color: Colors.white,
                             ),
                           )
-                        : const Icon(Icons.camera_alt_outlined),
+                        : const Icon(Icons.camera_alt_outlined, size: 16),
                     label: Text(
-                      _isCapturing ? 'Capturing...' : 'Use This Photo',
+                      _isCapturing ? 'Capturing...' : 'Use This Angle',
                     ),
                   ),
                 ],
@@ -731,120 +792,3 @@ class _WindowsPhotoCaptureDialogState
   }
 }
 
-class _RegistrationSection extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final Color accent;
-  final Widget child;
-  final bool showDivider;
-
-  const _RegistrationSection({
-    required this.title,
-    required this.subtitle,
-    required this.accent,
-    required this.child,
-    required this.showDivider,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final subtitleStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-      height: 1.35,
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(Icons.widgets_outlined, color: accent, size: 20),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: subtitleStyle),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        child,
-        if (showDivider) ...[
-          const SizedBox(height: 14),
-          Divider(color: Theme.of(context).colorScheme.outlineVariant),
-        ],
-      ],
-    );
-  }
-}
-
-class _RegistrationHeroHeader extends StatelessWidget {
-  final bool compact;
-  final int photoCount;
-
-  const _RegistrationHeroHeader({required this.compact, required this.photoCount});
-
-  @override
-  Widget build(BuildContext context) {
-    final subtitleStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-      height: 1.4,
-    );
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AppPillTag(
-                label: 'Enrollment flow',
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                foregroundColor: context.appColors.mutedText,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Student Registration',
-                style: compact
-                    ? Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      )
-                    : Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Create a profile with guided capture for kiosk recognition.',
-                style: subtitleStyle,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 10),
-        AppPillTag(
-          label: '$photoCount/5 photos',
-          backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-          foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
-        ),
-      ],
-    );
-  }
-}
