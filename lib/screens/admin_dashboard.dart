@@ -95,6 +95,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
                                     child: _DashboardTabBar(
                                       compact: compact,
                                       tabController: _tabController,
+                                      logCount: attendanceBox.length,
                                     ),
                                   ),
                                 ),
@@ -488,8 +489,13 @@ class _TopIconAction extends StatelessWidget {
 class _DashboardTabBar extends StatelessWidget {
   final bool compact;
   final TabController tabController;
+  final int logCount;
 
-  const _DashboardTabBar({required this.compact, required this.tabController});
+  const _DashboardTabBar({
+    required this.compact,
+    required this.tabController,
+    required this.logCount,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -537,16 +543,16 @@ class _DashboardTabBar extends StatelessWidget {
             fontWeight: FontWeight.w500,
             fontSize: 13,
           ),
-          tabs: const [
-            Tab(
+          tabs: [
+            const Tab(
               icon: Icon(Icons.person_add_alt_1_rounded, size: 16),
               text: 'Biometric Enrollment',
               iconMargin: EdgeInsets.only(bottom: 2),
             ),
             Tab(
-              icon: Icon(Icons.event_note_rounded, size: 16),
-              text: 'Audit Logs',
-              iconMargin: EdgeInsets.only(bottom: 2),
+              icon: const Icon(Icons.event_note_rounded, size: 16),
+              text: 'Audit Logs ($logCount)',
+              iconMargin: const EdgeInsets.only(bottom: 2),
             ),
           ],
         ),
