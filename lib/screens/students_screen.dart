@@ -17,8 +17,9 @@ class StudentsScreen extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stack) => Center(child: Text('Error: $error')),
           data: (studentsBox) => AppPageScaffold(
+            eyebrow: 'ROSTER & BIOMETRIC PROFILES',
             title: 'Students',
-            subtitle: 'Manage student profiles and biometric completeness',
+            subtitle: 'Manage student identity profiles and facial baseline embeddings',
             child: StreamBuilder(
               stream: studentsBox.watch(),
               builder: (context, _) => StudentList(studentsBox: studentsBox),

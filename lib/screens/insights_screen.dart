@@ -5,6 +5,7 @@ import '../models/attendance.dart';
 import '../models/student.dart';
 import '../providers/hive_provider.dart';
 import '../widgets/app_chrome.dart';
+import '../widgets/biometric_indicators.dart';
 import '../widgets/responsive_utils.dart';
 
 class InsightsScreen extends ConsumerStatefulWidget {
@@ -200,35 +201,50 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surfaceAlt = Theme.of(context).colorScheme.surfaceContainerHighest;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return AppPanel(
-      radius: 20,
+      radius: 14,
       color: surfaceAlt,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(16),
+              color: color.withValues(alpha: isDark ? 0.2 : 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: color.withValues(alpha: isDark ? 0.35 : 0.2),
+                width: 0.8,
+              ),
             ),
-            child: Icon(icon, color: color),
+            child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: Theme.of(context).textTheme.bodyMedium),
-                const SizedBox(height: 6),
+                Text(
+                  title.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
                 Text(
                   value,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.headlineMedium?.copyWith(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.6,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                 ),
               ],
             ),
@@ -254,6 +270,7 @@ class _RecentActivityList extends StatelessWidget {
   Widget build(BuildContext context) {
     final sorted = [...logs]
       ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,15 +280,13 @@ class _RecentActivityList extends StatelessWidget {
             Expanded(
               child: Text(
                 'Recent check-ins',
-                style: Theme.of(context).textTheme.titleLarge,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
+                    ),
               ),
             ),
-            Text(
-              'Latest 5',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
+            const TelemetryBadge(label: 'LATEST AUDIT'),
           ],
         ),
         const SizedBox(height: 14),
@@ -287,45 +302,69 @@ class _RecentActivityList extends StatelessWidget {
               .take(5)
               .map(
                 (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: AppPanel(
-                    radius: 20,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    elevated: false,
-                    padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(context).dividerColor.withValues(alpha: 0.6),
+                        width: 0.8,
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.fingerprint,
-                          color: Colors.teal,
-                          size: 20,
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00D284).withValues(alpha: isDark ? 0.2 : 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.check_circle_outline_rounded,
+                            color: Color(0xFF00D284),
+                            size: 18,
+                          ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 idToName[item.studentId] ?? 'Unknown student',
-                                style: Theme.of(context).textTheme.titleMedium,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
+                              const SizedBox(height: 2),
                               Text(
                                 'ID ${item.studentId} • ${_dayLabel(item.timestamp)}',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        Text(
-                          '${item.timestamp.hour.toString().padLeft(2, '0')}:${item.timestamp.minute.toString().padLeft(2, '0')}',
-                          style: Theme.of(context).textTheme.bodyMedium,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${item.timestamp.hour.toString().padLeft(2, '0')}:${item.timestamp.minute.toString().padLeft(2, '0')}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -366,21 +405,26 @@ class _TopTitleBar extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const TelemetryBadge(label: 'INSIGHT // TELEMETRY HUB', isLive: true),
+                  const SizedBox(height: 8),
                   Text(
-                    'Insights',
-                    style: Theme.of(context).textTheme.displayMedium,
+                    'Telemetry & Reports',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.6,
+                        ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Attendance performance and student activity',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    'Real-time attendance velocity and biometric confidence analytics',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
             ),
             IconButton.filledTonal(
               onPressed: () => context.push('/privacy'),
-              icon: const Icon(Icons.privacy_tip_outlined),
+              icon: const Icon(Icons.privacy_tip_outlined, size: 20),
             ),
           ],
         ),
@@ -388,8 +432,8 @@ class _TopTitleBar extends StatelessWidget {
         SegmentedButton<int>(
           segments: const [
             ButtonSegment(value: 1, label: Text('Today')),
-            ButtonSegment(value: 7, label: Text('7d')),
-            ButtonSegment(value: 30, label: Text('30d')),
+            ButtonSegment(value: 7, label: Text('7d Window')),
+            ButtonSegment(value: 30, label: Text('30d Month')),
           ],
           selected: {rangeDays},
           onSelectionChanged: (selection) => onRangeChanged(selection.first),

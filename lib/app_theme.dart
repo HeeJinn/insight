@@ -60,29 +60,32 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
     required this.warningSoft,
   });
 
+  Color get amber => warning;
+  Color get amberSoft => warningSoft;
+
   static const AppColorsExtension light = AppColorsExtension(
-    background: Color(0xFFFFFFFF),
-    surface: Color(0xFFF5F5F7),
-    elevatedSurface: Color(0xFFFFFFFF),
-    primary: Color(0xFF1D1D1F),
-    primaryText: Color(0xFF1D1D1F),
-    secondaryText: Color(0xFF6E6E73),
-    mutedText: Color(0xFF86868B),
-    border: Color(0xFFE8E8ED),
-    button: Color(0xFF1D1D1F),
+    background: Color(0xFFF8F9FA),
+    surface: Color(0xFFFFFFFF),
+    elevatedSurface: Color(0xFFF1F4F9),
+    primary: Color(0xFF0F172A),
+    primaryText: Color(0xFF0F172A),
+    secondaryText: Color(0xFF475569),
+    mutedText: Color(0xFF94A3B8),
+    border: Color(0xFFE2E8F0),
+    button: Color(0xFF0F172A),
     buttonText: Color(0xFFFFFFFF),
-    accent: Color(0xFF6366F1),
-    accentDark: Color(0xFF4F46E5),
-    accentSoft: Color(0xFFE8E9FF),
+    accent: Color(0xFF4F46E5),
+    accentDark: Color(0xFF4338CA),
+    accentSoft: Color(0xFFEEF2FF),
     blue: Color(0xFF2563EB),
     blueSoft: Color(0xFFEFF6FF),
-    orange: Color(0xFFF97316),
-    orangeSoft: Color(0xFFFFF7ED),
+    orange: Color(0xFFF59E0B),
+    orangeSoft: Color(0xFFFEF3C7),
     pink: Color(0xFFEC4899),
     pinkSoft: Color(0xFFFDF2F8),
     lilac: Color(0xFFF5F3FF),
-    success: Color(0xFF22C55E),
-    successSoft: Color(0xFFDCFCE7),
+    success: Color(0xFF00D284),
+    successSoft: Color(0xFFD1FAE5),
     danger: Color(0xFFEF4444),
     dangerSoft: Color(0xFFFEE2E2),
     warning: Color(0xFFF59E0B),
@@ -90,32 +93,32 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   );
 
   static const AppColorsExtension dark = AppColorsExtension(
-    background: Color(0xFF000000),
-    surface: Color(0xFF1D1D1F),
-    elevatedSurface: Color(0xFF2C2C2E),
-    primary: Color(0xFFF5F5F7),
-    primaryText: Color(0xFFF5F5F7),
-    secondaryText: Color(0xFFA1A1A6),
-    mutedText: Color(0xFF86868B),
-    border: Color(0xFF38383A),
-    button: Color(0xFFF5F5F7),
-    buttonText: Color(0xFF000000),
-    accent: Color(0xFF818CF8),
-    accentDark: Color(0xFF6366F1),
-    accentSoft: Color(0xFF1E1B4B),
-    blue: Color(0xFF60A5FA),
-    blueSoft: Color(0xFF172554),
-    orange: Color(0xFFFB923C),
-    orangeSoft: Color(0xFF431407),
+    background: Color(0xFF0A0C10),
+    surface: Color(0xFF121620),
+    elevatedSurface: Color(0xFF181E2C),
+    primary: Color(0xFFF8FAFC),
+    primaryText: Color(0xFFF8FAFC),
+    secondaryText: Color(0xFF94A3B8),
+    mutedText: Color(0xFF64748B),
+    border: Color(0xFF242C3D),
+    button: Color(0xFFF8FAFC),
+    buttonText: Color(0xFF0A0C10),
+    accent: Color(0xFF6366F1),
+    accentDark: Color(0xFF4F46E5),
+    accentSoft: Color(0xFF1E2238),
+    blue: Color(0xFF38BDF8),
+    blueSoft: Color(0xFF0C2438),
+    orange: Color(0xFFFBBF24),
+    orangeSoft: Color(0xFF3A2308),
     pink: Color(0xFFF472B6),
-    pinkSoft: Color(0xFF500724),
-    lilac: Color(0xFF2E1065),
-    success: Color(0xFF4ADE80),
-    successSoft: Color(0xFF052E16),
+    pinkSoft: Color(0xFF3D1024),
+    lilac: Color(0xFF2A1C47),
+    success: Color(0xFF00E599),
+    successSoft: Color(0xFF063321),
     danger: Color(0xFFF87171),
-    dangerSoft: Color(0xFF450A0A),
+    dangerSoft: Color(0xFF3F1111),
     warning: Color(0xFFFBBF24),
-    warningSoft: Color(0xFF451A03),
+    warningSoft: Color(0xFF3A2308),
   );
 
   @override
@@ -423,53 +426,53 @@ extension AppThemeContextExtension on BuildContext {
 
 class AppTheme {
   // Light mode palette
-  static const Color lightBackground = Color(0xFFFFFFFF);
-  static const Color lightSurface = Color(0xFFF5F5F7);
-  static const Color lightElevatedSurface = Color(0xFFFFFFFF);
-  static const Color lightPrimary = Color(0xFF1D1D1F);
-  static const Color lightPrimaryText = Color(0xFF1D1D1F);
-  static const Color lightSecondaryText = Color(0xFF6E6E73);
-  static const Color lightMutedText = Color(0xFF86868B);
-  static const Color lightBorder = Color(0xFFE8E8ED);
-  static const Color lightButton = Color(0xFF1D1D1F);
+  static const Color lightBackground = Color(0xFFF8F9FA);
+  static const Color lightSurface = Color(0xFFFFFFFF);
+  static const Color lightElevatedSurface = Color(0xFFF1F4F9);
+  static const Color lightPrimary = Color(0xFF0F172A);
+  static const Color lightPrimaryText = Color(0xFF0F172A);
+  static const Color lightSecondaryText = Color(0xFF475569);
+  static const Color lightMutedText = Color(0xFF94A3B8);
+  static const Color lightBorder = Color(0xFFE2E8F0);
+  static const Color lightButton = Color(0xFF0F172A);
   static const Color lightButtonText = Color(0xFFFFFFFF);
 
   // Dark mode palette
-  static const Color darkBackground = Color(0xFF000000);
-  static const Color darkSurface = Color(0xFF1D1D1F);
-  static const Color darkElevatedSurface = Color(0xFF2C2C2E);
-  static const Color darkPrimary = Color(0xFFF5F5F7);
-  static const Color darkPrimaryText = Color(0xFFF5F5F7);
-  static const Color darkSecondaryText = Color(0xFFA1A1A6);
-  static const Color darkMutedText = Color(0xFF86868B);
-  static const Color darkBorder = Color(0xFF38383A);
-  static const Color darkButton = Color(0xFFF5F5F7);
-  static const Color darkButtonText = Color(0xFF000000);
+  static const Color darkBackground = Color(0xFF0A0C10);
+  static const Color darkSurface = Color(0xFF121620);
+  static const Color darkElevatedSurface = Color(0xFF181E2C);
+  static const Color darkPrimary = Color(0xFFF8FAFC);
+  static const Color darkPrimaryText = Color(0xFFF8FAFC);
+  static const Color darkSecondaryText = Color(0xFF94A3B8);
+  static const Color darkMutedText = Color(0xFF64748B);
+  static const Color darkBorder = Color(0xFF242C3D);
+  static const Color darkButton = Color(0xFFF8FAFC);
+  static const Color darkButtonText = Color(0xFF0A0C10);
 
   // Semantic fallbacks for static backward compatibility
   static const Color background = lightBackground;
   static const Color backgroundSoft = lightSurface;
   static const Color surface = lightSurface;
-  static const Color surfaceSoft = Color(0xFFEAEAEF);
+  static const Color surfaceSoft = Color(0xFFF1F4F9);
   static const Color ink = lightPrimaryText;
   static const Color muted = lightMutedText;
   static const Color border = lightBorder;
 
-  static const Color accent = Color(0xFF6366F1);
-  static const Color accentDark = Color(0xFF4F46E5);
-  static const Color accentSoft = Color(0xFFE8E9FF);
+  static const Color accent = Color(0xFF4F46E5);
+  static const Color accentDark = Color(0xFF4338CA);
+  static const Color accentSoft = Color(0xFFEEF2FF);
 
   static const Color blue = Color(0xFF2563EB);
   static const Color blueSoft = Color(0xFFEFF6FF);
-  static const Color orange = Color(0xFFF97316);
-  static const Color orangeSoft = Color(0xFFFFF7ED);
+  static const Color orange = Color(0xFFF59E0B);
+  static const Color orangeSoft = Color(0xFFFEF3C7);
   static const Color pink = Color(0xFFEC4899);
   static const Color pinkSoft = Color(0xFFFDF2F8);
   static const Color lilac = Color(0xFFF5F3FF);
-  static const Color success = Color(0xFF22C55E);
+  static const Color success = Color(0xFF00D284);
   static const Color danger = Color(0xFFEF4444);
   static const Color dangerSoft = Color(0xFFFEE2E2);
-  static const Color warningSoft = Color(0xFFFFF3D6);
+  static const Color warningSoft = Color(0xFFFEF3C7);
 
   static const LinearGradient pageGradient = LinearGradient(
     begin: Alignment.topCenter,
@@ -584,13 +587,13 @@ class AppTheme {
       onSurface: lightPrimaryText,
       onSurfaceVariant: lightSecondaryText,
       surfaceContainerLowest: lightBackground,
-      surfaceContainerLow: lightSurface,
-      surfaceContainer: lightSurface,
-      surfaceContainerHigh: lightElevatedSurface,
-      surfaceContainerHighest: const Color(0xFFEAEAEF),
+      surfaceContainerLow: const Color(0xFFF1F4F9),
+      surfaceContainer: lightElevatedSurface,
+      surfaceContainerHigh: const Color(0xFFE8EDF5),
+      surfaceContainerHighest: const Color(0xFFE2E8F0),
       outline: lightBorder,
-      outlineVariant: const Color(0xFFD6D6DC),
-      shadow: Colors.black.withValues(alpha: 0.05),
+      outlineVariant: const Color(0xFFCBD5E1),
+      shadow: Colors.black.withValues(alpha: 0.04),
       scrim: Colors.black.withValues(alpha: 0.3),
     );
 
@@ -607,100 +610,95 @@ class AppTheme {
       textTheme: const TextTheme(
         displayLarge: TextStyle(
           fontSize: 40,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
           color: lightPrimaryText,
-          height: 1.08,
-          inherit: true,
+          letterSpacing: -1.2,
+          height: 1.05,
         ),
         displayMedium: TextStyle(
           fontSize: 32,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
           color: lightPrimaryText,
+          letterSpacing: -0.9,
           height: 1.1,
-          inherit: true,
         ),
         displaySmall: TextStyle(
-          fontSize: 28,
+          fontSize: 26,
           fontWeight: FontWeight.w700,
           color: lightPrimaryText,
-          inherit: true,
+          letterSpacing: -0.6,
         ),
         headlineLarge: TextStyle(
-          fontSize: 28,
+          fontSize: 26,
           fontWeight: FontWeight.w700,
           color: lightPrimaryText,
+          letterSpacing: -0.6,
           height: 1.14,
-          inherit: true,
         ),
         headlineMedium: TextStyle(
-          fontSize: 24,
+          fontSize: 22,
           fontWeight: FontWeight.w700,
           color: lightPrimaryText,
+          letterSpacing: -0.4,
           height: 1.2,
-          inherit: true,
         ),
         headlineSmall: TextStyle(
-          fontSize: 20,
+          fontSize: 19,
           fontWeight: FontWeight.w700,
           color: lightPrimaryText,
-          inherit: true,
+          letterSpacing: -0.2,
         ),
         titleLarge: TextStyle(
-          fontSize: 20,
+          fontSize: 18,
           fontWeight: FontWeight.w600,
           color: lightPrimaryText,
-          inherit: true,
+          letterSpacing: -0.2,
         ),
         titleMedium: TextStyle(
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: FontWeight.w600,
           color: lightPrimaryText,
-          inherit: true,
         ),
         titleSmall: TextStyle(
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: FontWeight.w600,
           color: lightPrimaryText,
-          inherit: true,
         ),
         bodyLarge: TextStyle(
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: FontWeight.w400,
           color: lightPrimaryText,
           height: 1.45,
-          inherit: true,
         ),
         bodyMedium: TextStyle(
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: FontWeight.w400,
           color: lightSecondaryText,
           height: 1.45,
-          inherit: true,
         ),
         bodySmall: TextStyle(
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w400,
           color: lightMutedText,
           height: 1.4,
-          inherit: true,
         ),
         labelLarge: TextStyle(
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: FontWeight.w600,
           color: lightPrimaryText,
-          inherit: true,
+          letterSpacing: 0.2,
         ),
         labelMedium: TextStyle(
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
           color: lightPrimaryText,
-          inherit: true,
+          letterSpacing: 0.5,
         ),
         labelSmall: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
           color: lightMutedText,
-          inherit: true,
+          letterSpacing: 1.1,
         ),
       ),
       appBarTheme: const AppBarTheme(
@@ -947,12 +945,12 @@ class AppTheme {
       onSurface: darkPrimaryText,
       onSurfaceVariant: darkSecondaryText,
       surfaceContainerLowest: darkBackground,
-      surfaceContainerLow: darkSurface,
+      surfaceContainerLow: const Color(0xFF0F121A),
       surfaceContainer: darkSurface,
       surfaceContainerHigh: darkElevatedSurface,
-      surfaceContainerHighest: const Color(0xFF3A3A3C),
+      surfaceContainerHighest: const Color(0xFF222B3D),
       outline: darkBorder,
-      outlineVariant: const Color(0xFF48484A),
+      outlineVariant: const Color(0xFF333E56),
       shadow: Colors.black.withValues(alpha: 0.6),
       scrim: Colors.black.withValues(alpha: 0.7),
     );
@@ -992,100 +990,95 @@ class AppTheme {
       textTheme: const TextTheme(
         displayLarge: TextStyle(
           fontSize: 40,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
           color: darkPrimaryText,
-          height: 1.08,
-          inherit: true,
+          letterSpacing: -1.2,
+          height: 1.05,
         ),
         displayMedium: TextStyle(
           fontSize: 32,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
           color: darkPrimaryText,
+          letterSpacing: -0.9,
           height: 1.1,
-          inherit: true,
         ),
         displaySmall: TextStyle(
-          fontSize: 28,
+          fontSize: 26,
           fontWeight: FontWeight.w700,
           color: darkPrimaryText,
-          inherit: true,
+          letterSpacing: -0.6,
         ),
         headlineLarge: TextStyle(
-          fontSize: 28,
+          fontSize: 26,
           fontWeight: FontWeight.w700,
           color: darkPrimaryText,
+          letterSpacing: -0.6,
           height: 1.14,
-          inherit: true,
         ),
         headlineMedium: TextStyle(
-          fontSize: 24,
+          fontSize: 22,
           fontWeight: FontWeight.w700,
           color: darkPrimaryText,
+          letterSpacing: -0.4,
           height: 1.2,
-          inherit: true,
         ),
         headlineSmall: TextStyle(
-          fontSize: 20,
+          fontSize: 19,
           fontWeight: FontWeight.w700,
           color: darkPrimaryText,
-          inherit: true,
+          letterSpacing: -0.2,
         ),
         titleLarge: TextStyle(
-          fontSize: 20,
+          fontSize: 18,
           fontWeight: FontWeight.w600,
           color: darkPrimaryText,
-          inherit: true,
+          letterSpacing: -0.2,
         ),
         titleMedium: TextStyle(
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: FontWeight.w600,
           color: darkPrimaryText,
-          inherit: true,
         ),
         titleSmall: TextStyle(
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: FontWeight.w600,
           color: darkPrimaryText,
-          inherit: true,
         ),
         bodyLarge: TextStyle(
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: FontWeight.w400,
           color: darkPrimaryText,
           height: 1.45,
-          inherit: true,
         ),
         bodyMedium: TextStyle(
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: FontWeight.w400,
           color: darkSecondaryText,
           height: 1.45,
-          inherit: true,
         ),
         bodySmall: TextStyle(
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w400,
           color: darkMutedText,
           height: 1.4,
-          inherit: true,
         ),
         labelLarge: TextStyle(
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: FontWeight.w600,
           color: darkPrimaryText,
-          inherit: true,
+          letterSpacing: 0.2,
         ),
         labelMedium: TextStyle(
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
           color: darkPrimaryText,
-          inherit: true,
+          letterSpacing: 0.5,
         ),
         labelSmall: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
           color: darkMutedText,
-          inherit: true,
+          letterSpacing: 1.1,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(

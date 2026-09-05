@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_ce/hive.dart';
+import '../app_theme.dart';
 import '../models/student.dart';
+import 'app_chrome.dart';
+import 'biometric_indicators.dart';
 
 class StudentList extends StatefulWidget {
   final Box<Student> studentsBox;
@@ -424,46 +427,111 @@ class _StudentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      leading: _AvatarLetter(name: student.name),
-      title: Text(
-        student.name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Text(
-          'ID ${student.id} • ${student.embeddings.length} samples',
-          style: Theme.of(context).textTheme.bodyMedium,
+    final colors = context.appColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.7),
+          width: 0.8,
         ),
       ),
-      trailing: PopupMenuButton<String>(
-        onSelected: (value) {
-          if (value == 'edit') {
-            onEdit();
-          } else {
-            onDelete();
-          }
-        },
-        itemBuilder: (context) => const [
-          PopupMenuItem<String>(
-            value: 'edit',
-            child: ListTile(
-              dense: true,
-              leading: Icon(Icons.edit_outlined),
-              title: Text('Edit'),
+      child: Row(
+        children: [
+          _AvatarLetter(name: student.name),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  student.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.accent.withValues(alpha: isDark ? 0.18 : 0.08),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: colors.accent.withValues(alpha: isDark ? 0.28 : 0.15),
+                          width: 0.7,
+                        ),
+                      ),
+                      child: Text(
+                        'ID ${student.id}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                          color: colors.accent,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    BiometricQualityPips(
+                      sampleCount: student.embeddings.length,
+                      targetCount: 5,
+                      compact: true,
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          PopupMenuItem<String>(
-            value: 'delete',
-            child: ListTile(
-              dense: true,
-              leading: Icon(Icons.delete_outline),
-              title: Text('Delete'),
+          PopupMenuButton<String>(
+            icon: Icon(
+              Icons.more_vert_rounded,
+              size: 18,
+              color: colors.mutedText,
             ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onSelected: (value) {
+              if (value == 'edit') {
+                onEdit();
+              } else {
+                onDelete();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem<String>(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit_outlined, size: 16),
+                    SizedBox(width: 8),
+                    Text('Edit name'),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline, size: 16, color: colors.danger),
+                    const SizedBox(width: 8),
+                    Text('Delete profile', style: TextStyle(color: colors.danger)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -478,19 +546,26 @@ class _AvatarLetter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
-      width: 44,
-      height: 44,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(12),
+        color: colors.accent.withValues(alpha: isDark ? 0.18 : 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: colors.accent.withValues(alpha: isDark ? 0.35 : 0.2),
+          width: 0.9,
+        ),
       ),
       alignment: Alignment.center,
       child: Text(
         name.isNotEmpty ? name[0].toUpperCase() : 'S',
         style: TextStyle(
-          color: Theme.of(context).colorScheme.onPrimaryContainer,
-          fontWeight: FontWeight.w700,
+          color: colors.accent,
+          fontWeight: FontWeight.w800,
           fontSize: 16,
         ),
       ),
@@ -506,30 +581,10 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.person_search_outlined,
-              size: 34,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 10),
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return AppEmptyState(
+      icon: Icons.person_search_outlined,
+      title: title,
+      subtitle: subtitle,
     );
   }
 }

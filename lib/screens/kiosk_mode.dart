@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../app_theme.dart';
 import '../providers/hive_provider.dart';
 import '../widgets/app_chrome.dart';
+import '../widgets/biometric_indicators.dart';
 import '../widgets/camera_scanner.dart';
 import '../widgets/responsive_utils.dart';
 import 'unsupported_screen.dart';
@@ -76,11 +77,8 @@ class KioskMode extends ConsumerWidget {
                                     attendanceCount: attendanceBox.length,
                                   )
                                 : AppPanel(
-                                    padding: const EdgeInsets.all(24),
-                                    gradient: context.appDecorations.accentGradient,
-                                    borderColor: Colors.white.withValues(
-                                      alpha: 0.25,
-                                    ),
+                                    padding: const EdgeInsets.all(20),
+                                    showReticles: true,
                                     child: Row(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
@@ -97,7 +95,7 @@ class KioskMode extends ConsumerWidget {
                                       ],
                                     ),
                                   ),
-                            SizedBox(height: compact ? 14 : 18),
+                            SizedBox(height: compact ? 12 : 16),
                             Expanded(
                               child: hasStudents
                                   ? AppPanel(
@@ -138,45 +136,43 @@ class _KioskHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const AppPillTag(
-          label: 'Live kiosk recognition',
-          backgroundColor: Color(0x26FFFFFF),
-          foregroundColor: Colors.white,
+        TelemetryBadge(
+          label: 'AUTONOMOUS KIOSK ENGINE',
+          isLive: true,
+          statusColor: colors.success,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 12),
         Text(
-          'Kiosk Mode',
-          style: Theme.of(context).textTheme.displayMedium?.copyWith(
-            color: Colors.white,
-            fontSize: 34,
+          'Biometric Verification Kiosk',
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.6,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 6),
         Text(
-          'Center the student in the frame, hold steady for a moment, and attendance will be logged after a successful match.',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: Colors.white.withValues(alpha: 0.92),
+          'Align student in optical frame. Real-time inference authenticates identity and logs timestamp locally.',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: colors.secondaryText,
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
         Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: 10,
+          runSpacing: 8,
           children: [
             AppPillTag(
-              label: '$studentCount students ready',
+              label: '$studentCount students enrolled',
               icon: Icons.groups_2_outlined,
-              backgroundColor: Colors.white.withValues(alpha: 0.16),
-              foregroundColor: Colors.white,
             ),
             AppPillTag(
-              label: '$attendanceCount logs stored',
+              label: '$attendanceCount check-ins logged',
               icon: Icons.event_note_outlined,
-              backgroundColor: Colors.white.withValues(alpha: 0.16),
-              foregroundColor: Colors.white,
             ),
           ],
         ),
@@ -196,8 +192,11 @@ class _CompactKioskHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     return AppPanel(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
+      showReticles: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -208,15 +207,18 @@ class _CompactKioskHeader extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    AppPillTag(
-                      label: 'Live kiosk recognition',
-                      backgroundColor: context.appColors.accentSoft,
-                      foregroundColor: context.appColors.accentDark,
+                    TelemetryBadge(
+                      label: 'LIVE RECOGNITION HUD',
+                      isLive: true,
+                      statusColor: colors.success,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Text(
-                      'Kiosk Mode',
-                      style: Theme.of(context).textTheme.headlineMedium,
+                      'Kiosk Scanner',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                      ),
                     ),
                   ],
                 ),

@@ -10,6 +10,7 @@ import '../providers/flavor_profiles_provider.dart';
 import '../providers/hive_provider.dart';
 import '../widgets/app_chrome.dart';
 import '../widgets/attendance_logs.dart';
+import '../widgets/biometric_indicators.dart';
 import '../widgets/responsive_utils.dart';
 import '../widgets/student_registration.dart';
 
@@ -66,9 +67,10 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
                       child: Column(
                         children: [
                           _AdminTitleHeader(
-                            title: 'Admin',
+                            eyebrow: 'SYSTEM CONTROL & ENROLLMENT',
+                            title: 'Admin Terminal',
                             subtitle:
-                                'Manage registration flow, logs, and kiosk controls',
+                                'Biometric registration, telemetry logs, and kiosk management',
                             onShowInfo: _showAdminInfo,
                             onOpenKiosk: () => context.push('/kiosk'),
                             onOpenSettings: () => context.push('/settings'),
@@ -85,7 +87,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
                                   ),
                                 ),
                                 const SliverToBoxAdapter(
-                                  child: SizedBox(height: 10),
+                                  child: SizedBox(height: 12),
                                 ),
                                 SliverPersistentHeader(
                                   pinned: true,
@@ -121,14 +123,18 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Admin'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+        title: const Text('Insight Admin Terminal'),
         content: const Text(
-          'Registration, student data, and attendance logs.',
+          'Manages facial embedding baselines (5-photo vectors), local encrypted attendance logs, hardware thresholds, and kiosk deployment triggers.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: const Text('Dismiss'),
           ),
         ],
       ),
@@ -137,6 +143,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
 }
 
 class _AdminTitleHeader extends StatelessWidget {
+  final String eyebrow;
   final String title;
   final String subtitle;
   final VoidCallback onShowInfo;
@@ -144,6 +151,7 @@ class _AdminTitleHeader extends StatelessWidget {
   final VoidCallback onOpenSettings;
 
   const _AdminTitleHeader({
+    required this.eyebrow,
     required this.title,
     required this.subtitle,
     required this.onShowInfo,
@@ -157,6 +165,7 @@ class _AdminTitleHeader extends StatelessWidget {
     final now = DateTime.now();
     final dateLabel =
         '${_weekdayShort(now.weekday)}, ${_monthShort(now.month)} ${now.day}';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -168,36 +177,51 @@ class _AdminTitleHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
+                    eyebrow.toUpperCase(),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w700,
+                      color: context.appColors.accentDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
                     title,
                     style: compact
-                        ? Theme.of(context).textTheme.headlineMedium
-                        : Theme.of(context).textTheme.headlineLarge,
+                        ? Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                          )
+                        : Theme.of(context).textTheme.headlineLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                          ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: context.appColors.mutedText,
                     ),
                   ),
                 ],
               ),
             ),
             _TopIconAction(
-              icon: Icons.info_outline,
-              tooltip: 'About this page',
+              icon: Icons.info_outline_rounded,
+              tooltip: 'Terminal Info',
               onPressed: onShowInfo,
             ),
             const SizedBox(width: 6),
             _TopIconAction(
               icon: Icons.camera_alt_outlined,
-              tooltip: 'Kiosk',
+              tooltip: 'Engage Kiosk',
               onPressed: onOpenKiosk,
             ),
             const SizedBox(width: 6),
             _TopIconAction(
-              icon: Icons.tune_outlined,
-              tooltip: 'Settings',
+              icon: Icons.tune_rounded,
+              tooltip: 'Hardware Settings',
               onPressed: onOpenSettings,
             ),
           ],
@@ -206,32 +230,30 @@ class _AdminTitleHeader extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.35),
-            borderRadius: BorderRadius.circular(12),
+            color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: Row(
             children: [
               Icon(
-                Icons.calendar_today_outlined,
-                size: 16,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                Icons.calendar_today_rounded,
+                size: 14,
+                color: context.appColors.mutedText,
               ),
               const SizedBox(width: 8),
               Text(
                 dateLabel,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: context.appColors.mutedText,
                   fontWeight: FontWeight.w600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
               const Spacer(),
-              Text(
-                'Admin workspace',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w700,
-                ),
+              TelemetryBadge(
+                label: 'ENROLLMENT WORKSPACE',
+                color: context.appColors.blue,
               ),
             ],
           ),
@@ -255,59 +277,82 @@ class _TopActionsBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final liveFlavors = flavors.where((profile) => profile.enabled).length;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.32),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
+
+    return AppPanel(
+      radius: 16,
+      padding: const EdgeInsets.all(14),
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Overview', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 10),
+          Row(
+            children: [
+              Text(
+                'SYSTEM TELEMETRY SUMMARY',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  letterSpacing: 1.0,
+                  fontWeight: FontWeight.w700,
+                  color: context.appColors.mutedText,
+                ),
+              ),
+              const Spacer(),
+              TelemetryBadge(
+                label: 'HIVE LOCAL DB',
+                color: context.appColors.accent,
+                pulse: false,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: _MetricMiniTile(
-                  label: 'Students',
+                  label: 'ENROLLED STUDENTS',
                   value: '$studentCount',
-                  icon: Icons.groups_2_outlined,
+                  icon: Icons.groups_2_rounded,
+                  accentColor: context.appColors.accent,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _MetricMiniTile(
-                  label: 'Check-ins',
+                  label: 'LOGGED EVENTS',
                   value: '$attendanceCount',
-                  icon: Icons.event_note_outlined,
+                  icon: Icons.event_note_rounded,
+                  accentColor: context.appColors.blue,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _MetricMiniTile(
-                  label: 'Live flavors',
+                  label: 'ACTIVE FLAVORS',
                   value: '$liveFlavors',
                   icon: Icons.palette_outlined,
+                  accentColor: context.appColors.amber,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               _QuickNavButton(
-                icon: Icons.query_stats_outlined,
-                label: 'Insights',
+                icon: Icons.query_stats_rounded,
+                label: 'View Insights',
                 onPressed: () => context.go('/insights'),
               ),
               _QuickNavButton(
-                icon: Icons.groups_outlined,
-                label: 'Students',
+                icon: Icons.groups_rounded,
+                label: 'Manage Students',
                 onPressed: () => context.go('/students'),
+              ),
+              _QuickNavButton(
+                icon: Icons.auto_awesome_mosaic_outlined,
+                label: 'Flavor Studio',
+                onPressed: () => context.push('/flavor-studio'),
               ),
             ],
           ),
@@ -321,11 +366,13 @@ class _MetricMiniTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final Color accentColor;
 
   const _MetricMiniTile({
     required this.icon,
     required this.label,
     required this.value,
+    required this.accentColor,
   });
 
   @override
@@ -333,12 +380,20 @@ class _MetricMiniTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: context.appColors.mutedText),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 16, color: accentColor),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -346,15 +401,22 @@ class _MetricMiniTile extends StatelessWidget {
               children: [
                 Text(
                   label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: context.appColors.mutedText,
+                    fontSize: 9.5,
+                    letterSpacing: 0.5,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
               ],
@@ -379,16 +441,18 @@ class _QuickNavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FilledButton.tonalIcon(
+    return OutlinedButton.icon(
       onPressed: onPressed,
-      style: FilledButton.styleFrom(
-        minimumSize: const Size(0, 38),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 36),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        side: BorderSide(color: Theme.of(context).dividerColor),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.compact,
       ),
-      icon: Icon(icon, size: 18),
-      label: Text(label),
+      icon: Icon(icon, size: 16),
+      label: Text(label, style: const TextStyle(fontSize: 12.5)),
     );
   }
 }
@@ -412,6 +476,7 @@ class _TopIconAction extends StatelessWidget {
       style: IconButton.styleFrom(
         minimumSize: const Size(36, 36),
         padding: const EdgeInsets.all(8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.compact,
       ),
@@ -429,26 +494,62 @@ class _DashboardTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+
     return Container(
-      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.96),
-      padding: const EdgeInsets.only(top: 4),
-      child: TabBar(
-        controller: tabController,
-        isScrollable: compact,
-        tabAlignment: compact ? TabAlignment.start : TabAlignment.fill,
-        dividerColor: Colors.transparent,
-        indicatorColor: scheme.primary,
-        indicatorWeight: 2.5,
-        labelColor: scheme.onSurface,
-        unselectedLabelColor: scheme.onSurfaceVariant,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-        tabs: [
-          const Tab(
-            icon: Icon(Icons.person_add_alt_1_outlined),
-            text: 'Register',
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        color: scheme.surface.withValues(alpha: 0.96),
+      ),
+      child: Container(
+        height: 42,
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        padding: const EdgeInsets.all(3),
+        child: TabBar(
+          controller: tabController,
+          dividerColor: Colors.transparent,
+          indicatorSize: TabBarIndicatorSize.tab,
+          indicator: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.6),
+            ),
           ),
-          const Tab(icon: Icon(Icons.event_note_outlined), text: 'Logs'),
-        ],
+          labelColor: scheme.onSurface,
+          unselectedLabelColor: context.appColors.mutedText,
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+            letterSpacing: 0.2,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: 13,
+          ),
+          tabs: const [
+            Tab(
+              icon: Icon(Icons.person_add_alt_1_rounded, size: 16),
+              text: 'Biometric Enrollment',
+              iconMargin: EdgeInsets.only(bottom: 2),
+            ),
+            Tab(
+              icon: Icon(Icons.event_note_rounded, size: 16),
+              text: 'Audit Logs',
+              iconMargin: EdgeInsets.only(bottom: 2),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -486,7 +587,8 @@ class _DashboardCardFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppPanel(
       radius: 16,
-      padding: const EdgeInsets.all(12),
+      showReticles: true,
+      padding: const EdgeInsets.all(16),
       color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.30),
       child: child,
     );
@@ -545,7 +647,7 @@ class _DashboardScrollFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      padding: const EdgeInsets.only(top: 6, bottom: 80),
       child: child,
     );
   }
@@ -557,10 +659,10 @@ class _TabBarHeaderDelegate extends SliverPersistentHeaderDelegate {
   const _TabBarHeaderDelegate({required this.child});
 
   @override
-  double get minExtent => 56;
+  double get minExtent => 54;
 
   @override
-  double get maxExtent => 56;
+  double get maxExtent => 54;
 
   @override
   Widget build(
@@ -571,9 +673,6 @@ class _TabBarHeaderDelegate extends SliverPersistentHeaderDelegate {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
       ),
       child: child,
     );

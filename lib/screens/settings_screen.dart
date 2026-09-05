@@ -7,6 +7,7 @@ import '../providers/flavor_profiles_provider.dart';
 import '../providers/hive_provider.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/app_chrome.dart';
+import '../widgets/biometric_indicators.dart';
 import '../widgets/responsive_utils.dart';
 
 const String _detectionModelAsset = 'assets/models/face_detection_front.tflite';
@@ -448,41 +449,55 @@ class _StatusTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surfaceAlt = Theme.of(context).colorScheme.surfaceContainerHighest;
-    return AppPanel(
-      radius: 24,
-      color: surfaceAlt,
-      padding: const EdgeInsets.all(16),
-      elevated: false,
+    final surfaceAlt = Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: surfaceAlt,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
       child: Row(
         children: [
           Container(
-            width: 46,
-            height: 46,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(16),
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              positive ? Icons.check_rounded : Icons.hourglass_top_rounded,
+              positive ? Icons.check_circle_outline_rounded : Icons.pending_outlined,
               color: color,
+              size: 18,
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 4),
-                Text(value, style: Theme.of(context).textTheme.bodyMedium),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: context.appColors.mutedText,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
               ],
             ),
           ),
-          AppPillTag(
-            label: positive ? 'Ready' : 'Pending',
-            backgroundColor: color.withValues(alpha: 0.14),
-            foregroundColor: color,
+          TelemetryBadge(
+            label: positive ? 'VERIFIED' : 'PENDING',
+            color: color,
+            pulse: !positive,
           ),
         ],
       ),
@@ -505,32 +520,45 @@ class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surfaceAlt = Theme.of(context).colorScheme.surfaceContainerHighest;
-    return AppPanel(
-      radius: 24,
-      color: surfaceAlt,
-      padding: const EdgeInsets.all(16),
-      elevated: false,
+    final surfaceAlt = Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: surfaceAlt,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 46,
-            height: 46,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(16),
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: color),
+            child: Icon(icon, color: color, size: 18),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 4),
-                Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: context.appColors.mutedText,
+                    height: 1.35,
+                  ),
+                ),
               ],
             ),
           ),

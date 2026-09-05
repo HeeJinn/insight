@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/router_provider.dart';
+import '../widgets/app_dock.dart';
 
 class RootShellScreen extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
@@ -45,7 +46,7 @@ class _RootShellScreenState extends State<RootShellScreen> {
         await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            title: const Text('Exit app?'),
+            title: const Text('Exit Insight?'),
             content: const Text('Do you want to close Insight now?'),
             actions: [
               TextButton(
@@ -77,33 +78,33 @@ class _RootShellScreenState extends State<RootShellScreen> {
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         body: widget.navigationShell,
-        bottomNavigationBar: NavigationBar(
+        bottomNavigationBar: AppDock(
           selectedIndex: widget.navigationShell.currentIndex,
-          onDestinationSelected: _goToBranch,
+          onSelect: _goToBranch,
           destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Home',
+            DockDestination(
+              icon: Icons.dashboard_outlined,
+              activeIcon: Icons.dashboard_rounded,
+              label: 'Command',
             ),
-            NavigationDestination(
-              icon: Icon(Icons.insights_outlined),
-              selectedIcon: Icon(Icons.insights),
-              label: 'Insights',
+            DockDestination(
+              icon: Icons.query_stats_outlined,
+              activeIcon: Icons.query_stats_rounded,
+              label: 'Telemetry',
             ),
-            NavigationDestination(
-              icon: Icon(Icons.groups_outlined),
-              selectedIcon: Icon(Icons.groups),
+            DockDestination(
+              icon: Icons.badge_outlined,
+              activeIcon: Icons.badge_rounded,
               label: 'Students',
             ),
-            NavigationDestination(
-              icon: Icon(Icons.schedule_outlined),
-              selectedIcon: Icon(Icons.schedule),
+            DockDestination(
+              icon: Icons.timer_outlined,
+              activeIcon: Icons.timer_rounded,
               label: 'Sessions',
             ),
-            NavigationDestination(
-              icon: Icon(Icons.admin_panel_settings_outlined),
-              selectedIcon: Icon(Icons.admin_panel_settings),
+            DockDestination(
+              icon: Icons.tune_outlined,
+              activeIcon: Icons.tune_rounded,
               label: 'Admin',
             ),
           ],

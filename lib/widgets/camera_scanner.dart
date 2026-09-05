@@ -16,6 +16,7 @@ import '../providers/sessions_provider.dart';
 import '../services/captured_file_cleanup.dart';
 import '../services/face_processor.dart';
 import 'app_chrome.dart';
+import 'biometric_indicators.dart';
 import 'responsive_utils.dart';
 
 class CameraScanner extends ConsumerStatefulWidget {
@@ -549,57 +550,95 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
             Align(
               alignment: Alignment.topLeft,
               child: Padding(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(16),
                 child: Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    _OverlayBadge(
-                      icon: Icons.groups_2_outlined,
-                      label: '${widget.studentsBox.length} students loaded',
+                    TelemetryBadge(
+                      label: '${widget.studentsBox.length} STUDENTS LOADED',
+                      icon: Icons.badge_outlined,
+                      statusColor: Colors.white,
                     ),
                     if (!compact)
-                      _OverlayBadge(
+                      TelemetryBadge(
+                        label: 'THRESHOLD ${threshold.toStringAsFixed(2)}',
                         icon: Icons.tune,
-                        label: 'Threshold ${threshold.toStringAsFixed(2)}',
+                        statusColor: Colors.white,
+                      ),
+                    if (_isProcessing)
+                      const TelemetryBadge(
+                        label: 'INFERENCE BUSY',
+                        isLive: true,
+                        statusColor: Color(0xFFFBBF24),
                       ),
                   ],
                 ),
               ),
             ),
             Center(
-              child: Container(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
                 width: frameWidth,
                 height: frameHeight,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(40),
+                  borderRadius: BorderRadius.circular(32),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.95),
-                    width: 2.2,
+                    color: _recognizedStudent != null
+                        ? const Color(0xFF00E599)
+                        : Colors.white.withValues(alpha: 0.9),
+                    width: _recognizedStudent != null ? 2.8 : 2.0,
                   ),
-                  boxShadow: context.appDecorations.panelShadow,
+                  boxShadow: [
+                    if (_recognizedStudent != null)
+                      BoxShadow(
+                        color: const Color(0xFF00E599).withValues(alpha: 0.4),
+                        blurRadius: 24,
+                        spreadRadius: 2,
+                      ),
+                  ],
                 ),
                 child: Stack(
-                  children: const [
+                  children: [
                     Positioned(
-                      top: 14,
-                      left: 14,
-                      child: _CornerAccent(alignment: Alignment.topLeft),
+                      top: 12,
+                      left: 12,
+                      child: _CornerAccent(
+                        alignment: Alignment.topLeft,
+                        color: _recognizedStudent != null
+                            ? const Color(0xFF00E599)
+                            : Colors.white,
+                      ),
                     ),
                     Positioned(
-                      top: 14,
-                      right: 14,
-                      child: _CornerAccent(alignment: Alignment.topRight),
+                      top: 12,
+                      right: 12,
+                      child: _CornerAccent(
+                        alignment: Alignment.topRight,
+                        color: _recognizedStudent != null
+                            ? const Color(0xFF00E599)
+                            : Colors.white,
+                      ),
                     ),
                     Positioned(
-                      bottom: 14,
-                      left: 14,
-                      child: _CornerAccent(alignment: Alignment.bottomLeft),
+                      bottom: 12,
+                      left: 12,
+                      child: _CornerAccent(
+                        alignment: Alignment.bottomLeft,
+                        color: _recognizedStudent != null
+                            ? const Color(0xFF00E599)
+                            : Colors.white,
+                      ),
                     ),
                     Positioned(
-                      bottom: 14,
-                      right: 14,
-                      child: _CornerAccent(alignment: Alignment.bottomRight),
+                      bottom: 12,
+                      right: 12,
+                      child: _CornerAccent(
+                        alignment: Alignment.bottomRight,
+                        color: _recognizedStudent != null
+                            ? const Color(0xFF00E599)
+                            : Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -608,57 +647,63 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
             Align(
               alignment: Alignment.bottomCenter,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+                padding: const EdgeInsets.all(16),
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: compact ? 260 : 420),
+                  constraints: BoxConstraints(maxWidth: compact ? 300 : 440),
                   child: AppPanel(
-                    radius: compact ? 22 : 26,
-                    padding: EdgeInsets.all(compact ? 12 : 18),
+                    radius: 16,
+                    showReticles: true,
+                    padding: EdgeInsets.all(compact ? 12 : 16),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        AppPillTag(
-                          label: _recognizedStudent == null
-                              ? _usesSnapshotScanning
-                                    ? 'Scanning snapshots'
-                                    : 'Scanning live'
-                              : _cooldownSecondsLeft > 0
-                              ? 'Verified • lock ${_cooldownSecondsLeft}s'
-                              : 'Attendance captured',
-                          backgroundColor: _recognizedStudent == null
-                              ? context.appColors.accentSoft
-                              : context.appColors.orangeSoft,
-                          foregroundColor: _recognizedStudent == null
-                              ? context.appColors.accentDark
-                              : context.appColors.orange,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: compact ? 10 : 14,
-                            vertical: compact ? 8 : 10,
-                          ),
+                        Row(
+                          children: [
+                            TelemetryBadge(
+                              label: _recognizedStudent == null
+                                  ? (_usesSnapshotScanning
+                                      ? 'SNAPSHOT RETICLE'
+                                      : 'LIVE SCAN ACTIVE')
+                                  : (_cooldownSecondsLeft > 0
+                                      ? 'VERIFIED • LOCK ${_cooldownSecondsLeft}S'
+                                      : 'ATTENDANCE CAPTURED'),
+                              statusColor: _recognizedStudent == null
+                                  ? context.appColors.accent
+                                  : context.appColors.success,
+                              isLive: _recognizedStudent == null,
+                            ),
+                            const Spacer(),
+                            if (_recognizedStudent != null)
+                              Container(
+                                width: 22,
+                                height: 22,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF00E599),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.check,
+                                  size: 14,
+                                  color: Colors.black,
+                                ),
+                              ),
+                          ],
                         ),
-                        SizedBox(height: compact ? 8 : 10),
-                        if (!compact) ...[
-                          Text(
-                            _recognizedStudent == null
-                                ? _usesSnapshotScanning
-                                      ? 'Snapshot Scan'
-                                      : 'Live Scan'
-                                : 'Attendance Captured',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 6),
-                        ],
+                        const SizedBox(height: 10),
                         Text(
                           _recognizedStudent == null
                               ? _statusLabel
-                              : _cooldownSecondsLeft > 0
-                              ? 'Attendance logged for $_recognizedStudent. '
-                                    'Next log in ${_cooldownSecondsLeft}s.'
-                              : 'Attendance logged for $_recognizedStudent',
+                              : 'Verified: $_recognizedStudent',
                           maxLines: compact ? 2 : 3,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium,
+                          style: TextStyle(
+                            fontSize: compact ? 13 : 15,
+                            fontWeight: _recognizedStudent != null
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            letterSpacing: -0.2,
+                          ),
                         ),
                       ],
                     ),
@@ -770,47 +815,15 @@ class _ScannerStatePanel extends StatelessWidget {
   }
 }
 
-class _OverlayBadge extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _OverlayBadge({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 44, maxWidth: 240),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: Colors.white),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _CornerAccent extends StatelessWidget {
   final Alignment alignment;
+  final Color color;
 
-  const _CornerAccent({required this.alignment});
+  const _CornerAccent({
+    required this.alignment,
+    this.color = const Color(0xCCFFFFFF),
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -820,31 +833,31 @@ class _CornerAccent extends StatelessWidget {
         alignment == Alignment.topLeft || alignment == Alignment.topRight;
 
     return Container(
-      width: 36,
-      height: 36,
+      width: 32,
+      height: 32,
       decoration: BoxDecoration(
         border: Border(
           top: isTop
-              ? const BorderSide(color: Color(0xCCFFFFFF), width: 4)
+              ? BorderSide(color: color, width: 3.5)
               : BorderSide.none,
           left: isLeft
-              ? const BorderSide(color: Color(0xCCFFFFFF), width: 4)
+              ? BorderSide(color: color, width: 3.5)
               : BorderSide.none,
           right: !isLeft
-              ? const BorderSide(color: Color(0xCCFFFFFF), width: 4)
+              ? BorderSide(color: color, width: 3.5)
               : BorderSide.none,
           bottom: !isTop
-              ? const BorderSide(color: Color(0xCCFFFFFF), width: 4)
+              ? BorderSide(color: color, width: 3.5)
               : BorderSide.none,
         ),
         borderRadius: BorderRadius.only(
-          topLeft: isTop && isLeft ? const Radius.circular(16) : Radius.zero,
-          topRight: isTop && !isLeft ? const Radius.circular(16) : Radius.zero,
+          topLeft: isTop && isLeft ? const Radius.circular(12) : Radius.zero,
+          topRight: isTop && !isLeft ? const Radius.circular(12) : Radius.zero,
           bottomLeft: !isTop && isLeft
-              ? const Radius.circular(16)
+              ? const Radius.circular(12)
               : Radius.zero,
           bottomRight: !isTop && !isLeft
-              ? const Radius.circular(16)
+              ? const Radius.circular(12)
               : Radius.zero,
         ),
       ),

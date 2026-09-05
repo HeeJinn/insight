@@ -24,6 +24,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.dispose();
   }
 
+  Future<void> _openPrivacyPolicy() async {
+    final accepted = await context.push<bool>('/privacy');
+    if (accepted == true && mounted) {
+      setState(() => _acceptedPrivacy = true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = const [
@@ -44,8 +51,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ),
     ];
 
+    final isLastStep = _index == pages.length - 1;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Welcome')),
+      appBar: AppBar(
+        title: const Text('Welcome'),
+        actions: [
+          if (!isLastStep)
+            TextButton(
+              onPressed: () {
+                _controller.jumpToPage(pages.length - 1);
+              },
+              child: const Text('Skip'),
+            ),
+        ],
+      ),
       body: AppBackground(
         child: SafeArea(
           child: Padding(
@@ -68,7 +88,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   children: List.generate(
                     pages.length,
                     (i) => Expanded(
-                      child: Container(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
                         margin: const EdgeInsets.symmetric(horizontal: 3),
                         height: 6,
                         decoration: BoxDecoration(
@@ -82,10 +103,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                if (_index == pages.length - 1)
+                if (isLastStep)
                   AppPanel(
                     radius: 16,
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     child: Row(
                       children: [
@@ -94,10 +115,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           onChanged: (v) => setState(() => _acceptedPrivacy = v ?? false),
                         ),
                         Expanded(
-                          child: Text('I agree to the privacy policy and local data usage.'),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () =>
+                                setState(() => _acceptedPrivacy = !_acceptedPrivacy),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                'I agree to the privacy policy and local data usage.',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                          ),
                         ),
                         TextButton(
-                          onPressed: () => context.push('/privacy'),
+                          onPressed: _openPrivacyPolicy,
                           child: const Text('Read policy'),
                         ),
                       ],
@@ -106,7 +138,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    if (_index > 0)
+                    if (_index > 0) ...[
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => _controller.previousPage(
@@ -116,25 +148,40 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           child: const Text('Back'),
                         ),
                       ),
-                    if (_index > 0) const SizedBox(width: 10),
+                      const SizedBox(width: 10),
+                    ],
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () async {
-                          if (_index < pages.length - 1) {
+                          if (!isLastStep) {
                             await _controller.nextPage(
                               duration: const Duration(milliseconds: 220),
                               curve: Curves.easeOut,
                             );
                             return;
                           }
-                          if (!_acceptedPrivacy) return;
+                          if (!_acceptedPrivacy) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text(
+                                  'Please agree to the privacy policy to continue.',
+                                ),
+                                behavior: SnackBarBehavior.floating,
+                                action: SnackBarAction(
+                                  label: 'Read Policy',
+                                  onPressed: _openPrivacyPolicy,
+                                ),
+                              ),
+                            );
+                            return;
+                          }
                           await ref
                               .read(appStateControllerProvider)
                               .completeOnboarding(acceptedPrivacy: true);
                           if (!context.mounted) return;
                           context.go('/');
                         },
-                        child: Text(_index < pages.length - 1 ? 'Next' : 'Start'),
+                        child: Text(!isLastStep ? 'Next' : 'Start'),
                       ),
                     ),
                   ],

@@ -48,7 +48,9 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final onboardingDone = ref.read(onboardingDoneProvider);
       final isOnboarding = state.matchedLocation == '/onboarding';
-      if (!onboardingDone && !isOnboarding) {
+      final isPrivacy = state.matchedLocation == '/privacy' ||
+          state.matchedLocation == '/settings/privacy';
+      if (!onboardingDone && !isOnboarding && !isPrivacy) {
         return '/onboarding';
       }
       if (onboardingDone && isOnboarding) {
