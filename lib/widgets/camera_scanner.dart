@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:image/image.dart' as img;
+import 'package:lottie/lottie.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../app_theme.dart';
 import '../models/attendance.dart';
@@ -675,17 +676,28 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
                             ),
                             const Spacer(),
                             if (_recognizedStudent != null)
-                              Container(
-                                width: 22,
-                                height: 22,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF00E599),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.check,
-                                  size: 14,
-                                  color: Colors.black,
+                              // "Success" by Darius Afchar, via LottieFiles
+                              // (Lottie Simple License).
+                              SizedBox(
+                                width: 32,
+                                height: 32,
+                                child: Lottie.asset(
+                                  'assets/animations/success_checkmark.json',
+                                  repeat: false,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) => Container(
+                                    width: 22,
+                                    height: 22,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF00E599),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.check,
+                                      size: 14,
+                                      color: Colors.black,
+                                    ),
+                                  ),
                                 ),
                               ),
                           ],

@@ -5,51 +5,51 @@ import 'package:insight/models/flavor_profile.dart';
 
 void main() {
   group('AppTheme & Extensions QA Tests', () {
-    test('Light Theme has correct precision instrument color tokens', () {
+    test('Light Theme has correct Apple HIG color tokens', () {
       final theme = AppTheme.light();
-      expect(theme.scaffoldBackgroundColor, const Color(0xFFF8F9FA));
-      expect(theme.colorScheme.surface, const Color(0xFFFFFFFF));
-      expect(theme.colorScheme.primary, const Color(0xFF0F172A));
+      expect(theme.scaffoldBackgroundColor, const Color(0xFFFFFFFF));
+      expect(theme.colorScheme.surface, const Color(0xFFF2F2F7));
+      expect(theme.colorScheme.primary, const Color(0xFF000000));
       expect(theme.colorScheme.onPrimary, const Color(0xFFFFFFFF));
-      expect(theme.dividerColor, const Color(0xFFE2E8F0));
+      expect(theme.dividerColor, const Color(0xFFC6C6C8));
 
       final colors = theme.extension<AppColorsExtension>();
       expect(colors, isNotNull);
-      expect(colors!.background, const Color(0xFFF8F9FA));
-      expect(colors.surface, const Color(0xFFFFFFFF));
-      expect(colors.primaryText, const Color(0xFF0F172A));
-      expect(colors.secondaryText, const Color(0xFF475569));
-      expect(colors.mutedText, const Color(0xFF94A3B8));
-      expect(colors.border, const Color(0xFFE2E8F0));
+      expect(colors!.background, const Color(0xFFFFFFFF));
+      expect(colors.surface, const Color(0xFFF2F2F7));
+      expect(colors.primaryText, const Color(0xFF000000));
+      expect(colors.secondaryText, const Color(0xFF6C6C70));
+      expect(colors.mutedText, const Color(0xFF8E8E93));
+      expect(colors.border, const Color(0xFFC6C6C8));
 
       final decos = theme.extension<AppDecorationsExtension>();
       expect(decos, isNotNull);
-      expect(decos!.cardRadius, 16.0);
-      expect(decos.buttonRadius, 14.0);
+      expect(decos!.cardRadius, 12.0);
+      expect(decos.buttonRadius, 12.0);
     });
 
-    test('Dark Theme has correct carbon-slate precision color tokens', () {
+    test('Dark Theme has correct Apple HIG color tokens', () {
       final theme = AppTheme.dark();
-      expect(theme.scaffoldBackgroundColor, const Color(0xFF0A0C10));
-      expect(theme.colorScheme.surface, const Color(0xFF121620));
-      expect(theme.colorScheme.primary, const Color(0xFFF8FAFC));
-      expect(theme.colorScheme.onPrimary, const Color(0xFF0A0C10));
-      expect(theme.dividerColor, const Color(0xFF242C3D));
+      expect(theme.scaffoldBackgroundColor, const Color(0xFF000000));
+      expect(theme.colorScheme.surface, const Color(0xFF1C1C1E));
+      expect(theme.colorScheme.primary, const Color(0xFFFFFFFF));
+      expect(theme.colorScheme.onPrimary, const Color(0xFF000000));
+      expect(theme.dividerColor, const Color(0xFF38383A));
 
       final colors = theme.extension<AppColorsExtension>();
       expect(colors, isNotNull);
-      expect(colors!.background, const Color(0xFF0A0C10));
-      expect(colors.surface, const Color(0xFF121620));
-      expect(colors.elevatedSurface, const Color(0xFF181E2C));
-      expect(colors.primaryText, const Color(0xFFF8FAFC));
-      expect(colors.secondaryText, const Color(0xFF94A3B8));
-      expect(colors.mutedText, const Color(0xFF64748B));
-      expect(colors.border, const Color(0xFF242C3D));
+      expect(colors!.background, const Color(0xFF000000));
+      expect(colors.surface, const Color(0xFF1C1C1E));
+      expect(colors.elevatedSurface, const Color(0xFF2C2C2E));
+      expect(colors.primaryText, const Color(0xFFFFFFFF));
+      expect(colors.secondaryText, const Color(0xFF8E8E93));
+      expect(colors.mutedText, const Color(0xFF8E8E93));
+      expect(colors.border, const Color(0xFF38383A));
 
       final decos = theme.extension<AppDecorationsExtension>();
       expect(decos, isNotNull);
-      expect(decos!.cardRadius, 16.0);
-      expect(decos.buttonRadius, 14.0);
+      expect(decos!.cardRadius, 12.0);
+      expect(decos.buttonRadius, 12.0);
     });
 
     test('Dynamic seedColor correctly tints Light and Dark themes', () {

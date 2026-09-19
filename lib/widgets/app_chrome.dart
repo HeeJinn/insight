@@ -1,9 +1,12 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import '../app_theme.dart';
 import '../providers/settings_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'biometric_indicators.dart';
 import 'responsive_utils.dart';
+
+export 'apple_chrome.dart';
 
 class AppBackground extends StatelessWidget {
   final Widget child;
@@ -32,11 +35,11 @@ class AppPanel extends StatelessWidget {
   const AppPanel({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(20),
+    this.padding = const EdgeInsets.all(16),
     this.gradient,
     this.color,
-    this.radius = 16,
-    this.elevated = true,
+    this.radius = 12,
+    this.elevated = false,
     this.borderColor,
     this.showReticles = false,
   });
@@ -46,8 +49,7 @@ class AppPanel extends StatelessWidget {
     final surface = Theme.of(context).colorScheme.surface;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final resolvedBorderColor = borderColor ??
-        (isDark ? const Color(0x332E394E) : const Color(0xFFE2E8F0));
+    final resolvedBorderColor = borderColor ?? context.appColors.border;
 
     Widget content = Padding(padding: padding, child: child);
 
@@ -70,13 +72,13 @@ class AppPanel extends StatelessWidget {
         color: gradient == null ? (color ?? surface) : null,
         gradient: gradient,
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: resolvedBorderColor, width: 0.9),
+        border: Border.all(color: resolvedBorderColor, width: 0.5),
         boxShadow: elevated
             ? [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.04),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 2),
                 ),
               ]
             : null,
@@ -287,24 +289,36 @@ class AppPageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (eyebrow != null) ...[
-                TelemetryBadge(label: eyebrow!, isLive: false),
-                const SizedBox(height: 8),
+                Text(
+                  eyebrow!.toUpperCase(),
+                  style: AppleTypography.caption1.copyWith(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.8,
+                    color: context.appColors.secondaryText,
+                  ),
+                ),
+                const SizedBox(height: 4),
               ],
               Text(
                 title,
-                style: compact
-                    ? Theme.of(context).textTheme.headlineMedium
-                    : Theme.of(context).textTheme.headlineLarge,
+                style: AppleTypography.largeTitle.copyWith(
+                  color: context.appColors.primaryText,
+                ),
               ),
               const SizedBox(height: 4),
-              Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+              Text(
+                subtitle,
+                style: AppleTypography.subhead.copyWith(
+                  color: context.appColors.secondaryText,
+                ),
+              ),
             ],
           ),
         ),
@@ -340,28 +354,39 @@ class AppEmptyState extends StatelessWidget {
         showReticles: true,
         color: Theme.of(context).colorScheme.surfaceContainerHigh,
         elevated: false,
-        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 26),
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: colors.accent.withValues(alpha: isDark ? 0.16 : 0.08),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: colors.accent.withValues(alpha: isDark ? 0.3 : 0.15),
-                  width: 0.9,
+            // "Empty State" by Creative Salt & Pepper, via LottieFiles
+            // (Lottie Simple License — free for commercial use).
+            SizedBox(
+              width: 140,
+              height: 140,
+              child: Lottie.asset(
+                'assets/animations/empty_state.json',
+                repeat: true,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: colors.accent.withValues(alpha: isDark ? 0.16 : 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: colors.accent.withValues(alpha: isDark ? 0.3 : 0.15),
+                      width: 0.9,
+                    ),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 26,
+                    color: colors.accent,
+                  ),
                 ),
               ),
-              child: Icon(
-                icon,
-                size: 26,
-                color: colors.accent,
-              ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 6),
             Text(
               title,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(

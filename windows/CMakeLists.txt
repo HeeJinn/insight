@@ -87,6 +87,17 @@ if(PLUGIN_BUNDLED_LIBRARIES)
     COMPONENT Runtime)
 endif()
 
+# tflite_flutter's Windows plugin doesn't bundle a prebuilt TensorFlow Lite C
+# library (see its README's "Windows" setup section) -- it must be built
+# manually and placed in a `blobs/` folder at the project root, then it's
+# copied here into the same `blobs/` folder next to the app executable,
+# matching the path tflite_flutter's Dart bindings look for at runtime.
+if(EXISTS "${PROJECT_BUILD_DIR}/../blobs/libtensorflowlite_c-win.dll")
+  install(FILES "${PROJECT_BUILD_DIR}/../blobs/libtensorflowlite_c-win.dll"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}/blobs/"
+    COMPONENT Runtime)
+endif()
+
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"

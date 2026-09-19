@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'models/flavor_profile.dart';
 
+export 'core/theme/apple_theme.dart';
+
 @immutable
 class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   final Color background;
@@ -64,61 +66,61 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   Color get amberSoft => warningSoft;
 
   static const AppColorsExtension light = AppColorsExtension(
-    background: Color(0xFFF8F9FA),
-    surface: Color(0xFFFFFFFF),
-    elevatedSurface: Color(0xFFF1F4F9),
-    primary: Color(0xFF0F172A),
-    primaryText: Color(0xFF0F172A),
-    secondaryText: Color(0xFF475569),
-    mutedText: Color(0xFF94A3B8),
-    border: Color(0xFFE2E8F0),
-    button: Color(0xFF0F172A),
+    background: Color(0xFFFFFFFF),
+    surface: Color(0xFFF2F2F7),
+    elevatedSurface: Color(0xFFFFFFFF),
+    primary: Color(0xFF000000),
+    primaryText: Color(0xFF000000),
+    secondaryText: Color(0xFF6C6C70),
+    mutedText: Color(0xFF8E8E93),
+    border: Color(0xFFC6C6C8),
+    button: Color(0xFF000000),
     buttonText: Color(0xFFFFFFFF),
-    accent: Color(0xFF4F46E5),
-    accentDark: Color(0xFF4338CA),
-    accentSoft: Color(0xFFEEF2FF),
-    blue: Color(0xFF2563EB),
-    blueSoft: Color(0xFFEFF6FF),
-    orange: Color(0xFFF59E0B),
-    orangeSoft: Color(0xFFFEF3C7),
-    pink: Color(0xFFEC4899),
-    pinkSoft: Color(0xFFFDF2F8),
-    lilac: Color(0xFFF5F3FF),
-    success: Color(0xFF00D284),
-    successSoft: Color(0xFFD1FAE5),
-    danger: Color(0xFFEF4444),
-    dangerSoft: Color(0xFFFEE2E2),
-    warning: Color(0xFFF59E0B),
-    warningSoft: Color(0xFFFEF3C7),
+    accent: Color(0xFF007AFF),
+    accentDark: Color(0xFF0051A8),
+    accentSoft: Color(0xFFE5F1FF),
+    blue: Color(0xFF007AFF),
+    blueSoft: Color(0xFFE5F1FF),
+    orange: Color(0xFFFF9500),
+    orangeSoft: Color(0xFFFFF3E0),
+    pink: Color(0xFFFF2D55),
+    pinkSoft: Color(0xFFFFEBF0),
+    lilac: Color(0xFFAF52DE),
+    success: Color(0xFF34C759),
+    successSoft: Color(0xFFE8F8EE),
+    danger: Color(0xFFFF3B30),
+    dangerSoft: Color(0xFFFFECEB),
+    warning: Color(0xFFFF9500),
+    warningSoft: Color(0xFFFFF3E0),
   );
 
   static const AppColorsExtension dark = AppColorsExtension(
-    background: Color(0xFF0A0C10),
-    surface: Color(0xFF121620),
-    elevatedSurface: Color(0xFF181E2C),
-    primary: Color(0xFFF8FAFC),
-    primaryText: Color(0xFFF8FAFC),
-    secondaryText: Color(0xFF94A3B8),
-    mutedText: Color(0xFF64748B),
-    border: Color(0xFF242C3D),
-    button: Color(0xFFF8FAFC),
-    buttonText: Color(0xFF0A0C10),
-    accent: Color(0xFF6366F1),
-    accentDark: Color(0xFF4F46E5),
-    accentSoft: Color(0xFF1E2238),
-    blue: Color(0xFF38BDF8),
-    blueSoft: Color(0xFF0C2438),
-    orange: Color(0xFFFBBF24),
-    orangeSoft: Color(0xFF3A2308),
-    pink: Color(0xFFF472B6),
-    pinkSoft: Color(0xFF3D1024),
-    lilac: Color(0xFF2A1C47),
-    success: Color(0xFF00E599),
-    successSoft: Color(0xFF063321),
-    danger: Color(0xFFF87171),
-    dangerSoft: Color(0xFF3F1111),
-    warning: Color(0xFFFBBF24),
-    warningSoft: Color(0xFF3A2308),
+    background: Color(0xFF000000),
+    surface: Color(0xFF1C1C1E),
+    elevatedSurface: Color(0xFF2C2C2E),
+    primary: Color(0xFFFFFFFF),
+    primaryText: Color(0xFFFFFFFF),
+    secondaryText: Color(0xFF8E8E93),
+    mutedText: Color(0xFF8E8E93),
+    border: Color(0xFF38383A),
+    button: Color(0xFFFFFFFF),
+    buttonText: Color(0xFF000000),
+    accent: Color(0xFF0A84FF),
+    accentDark: Color(0xFF0071E3),
+    accentSoft: Color(0xFF002244),
+    blue: Color(0xFF0A84FF),
+    blueSoft: Color(0xFF002244),
+    orange: Color(0xFFFFD60A),
+    orangeSoft: Color(0xFF332B00),
+    pink: Color(0xFFFF375F),
+    pinkSoft: Color(0xFF330B13),
+    lilac: Color(0xFFBF5AF2),
+    success: Color(0xFF30D158),
+    successSoft: Color(0xFF0A2B12),
+    danger: Color(0xFFFF453A),
+    dangerSoft: Color(0xFF330E0B),
+    warning: Color(0xFFFFD60A),
+    warningSoft: Color(0xFF332B00),
   );
 
   @override
@@ -245,112 +247,86 @@ class AppDecorationsExtension extends ThemeExtension<AppDecorationsExtension> {
   });
 
   static const AppDecorationsExtension light = AppDecorationsExtension(
-    cardRadius: 16.0,
-    buttonRadius: 14.0,
-    inputRadius: 14.0,
-    panelShadow: [
-      BoxShadow(
-        color: Color(0x0A000000),
-        blurRadius: 16,
-        offset: Offset(0, 4),
-      ),
-    ],
+    cardRadius: 12.0,
+    buttonRadius: 12.0,
+    inputRadius: 10.0,
+    panelShadow: [],
     pageGradient: LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFFFFFFF), Color(0xFFF5F5F7)],
+      colors: [Color(0xFFFFFFFF), Color(0xFFF2F2F7)],
     ),
     accentGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+      colors: [Color(0xFF007AFF), Color(0xFF0051A8)],
     ),
     blueGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
+      colors: [Color(0xFF5AC8FA), Color(0xFF007AFF)],
     ),
     orangeGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFFFDBA74), Color(0xFFF97316)],
+      colors: [Color(0xFFFFCC00), Color(0xFFFF9500)],
     ),
     pinkGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFFF472B6), Color(0xFFEC4899)],
+      colors: [Color(0xFFFF2D55), Color(0xFFAF52DE)],
     ),
     cardDecoration: BoxDecoration(
-      color: Color(0xFFF5F5F7),
-      borderRadius: BorderRadius.all(Radius.circular(16)),
-      border: Border.fromBorderSide(BorderSide(color: Color(0xFFE8E8ED))),
+      color: Color(0xFFFFFFFF),
+      borderRadius: BorderRadius.all(Radius.circular(12)),
+      border: Border.fromBorderSide(BorderSide(color: Color(0xFFC6C6C8), width: 0.5)),
     ),
     panelDecoration: BoxDecoration(
-      color: Color(0xFFF5F5F7),
-      borderRadius: BorderRadius.all(Radius.circular(16)),
-      border: Border.fromBorderSide(BorderSide(color: Color(0xFFE8E8ED))),
-      boxShadow: [
-        BoxShadow(
-          color: Color(0x0A000000),
-          blurRadius: 16,
-          offset: Offset(0, 4),
-        ),
-      ],
+      color: Color(0xFFFFFFFF),
+      borderRadius: BorderRadius.all(Radius.circular(12)),
+      border: Border.fromBorderSide(BorderSide(color: Color(0xFFC6C6C8), width: 0.5)),
     ),
   );
 
   static const AppDecorationsExtension dark = AppDecorationsExtension(
-    cardRadius: 16.0,
-    buttonRadius: 14.0,
-    inputRadius: 14.0,
-    panelShadow: [
-      BoxShadow(
-        color: Color(0x40000000),
-        blurRadius: 16,
-        offset: Offset(0, 4),
-      ),
-    ],
+    cardRadius: 12.0,
+    buttonRadius: 12.0,
+    inputRadius: 10.0,
+    panelShadow: [],
     pageGradient: LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFF000000), Color(0xFF1D1D1F)],
+      colors: [Color(0xFF000000), Color(0xFF000000)],
     ),
     accentGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
+      colors: [Color(0xFF0A84FF), Color(0xFF0071E3)],
     ),
     blueGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF93C5FD), Color(0xFF60A5FA)],
+      colors: [Color(0xFF64D2FF), Color(0xFF0A84FF)],
     ),
     orangeGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFFFED7AA), Color(0xFFFB923C)],
+      colors: [Color(0xFFFFD60A), Color(0xFFFF9F0A)],
     ),
     pinkGradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFFFBCFE8), Color(0xFFF472B6)],
+      colors: [Color(0xFFFF375F), Color(0xFFBF5AF2)],
     ),
     cardDecoration: BoxDecoration(
-      color: Color(0xFF1D1D1F),
-      borderRadius: BorderRadius.all(Radius.circular(16)),
-      border: Border.fromBorderSide(BorderSide(color: Color(0xFF38383A))),
+      color: Color(0xFF1C1C1E),
+      borderRadius: BorderRadius.all(Radius.circular(12)),
+      border: Border.fromBorderSide(BorderSide(color: Color(0xFF38383A), width: 0.5)),
     ),
     panelDecoration: BoxDecoration(
-      color: Color(0xFF1D1D1F),
-      borderRadius: BorderRadius.all(Radius.circular(16)),
-      border: Border.fromBorderSide(BorderSide(color: Color(0xFF38383A))),
-      boxShadow: [
-        BoxShadow(
-          color: Color(0x40000000),
-          blurRadius: 16,
-          offset: Offset(0, 4),
-        ),
-      ],
+      color: Color(0xFF1C1C1E),
+      borderRadius: BorderRadius.all(Radius.circular(12)),
+      border: Border.fromBorderSide(BorderSide(color: Color(0xFF38383A), width: 0.5)),
     ),
   );
 
@@ -425,104 +401,48 @@ extension AppThemeContextExtension on BuildContext {
 }
 
 class AppTheme {
-  // Light mode palette
-  static const Color lightBackground = Color(0xFFF8F9FA);
-  static const Color lightSurface = Color(0xFFFFFFFF);
-  static const Color lightElevatedSurface = Color(0xFFF1F4F9);
-  static const Color lightPrimary = Color(0xFF0F172A);
-  static const Color lightPrimaryText = Color(0xFF0F172A);
-  static const Color lightSecondaryText = Color(0xFF475569);
-  static const Color lightMutedText = Color(0xFF94A3B8);
-  static const Color lightBorder = Color(0xFFE2E8F0);
-  static const Color lightButton = Color(0xFF0F172A);
+  // Palette values below must stay identical to AppColorsExtension.light/dark
+  // (test/theme_test.dart enforces the extension's values). They're
+  // duplicated as literals — rather than aliased via field access — only
+  // because Dart doesn't allow const field access on a const instance here,
+  // and ThemeData construction below needs these to remain compile-time
+  // constants.
+  static const Color lightBackground = Color(0xFFFFFFFF);
+  static const Color lightSurface = Color(0xFFF2F2F7);
+  static const Color lightElevatedSurface = Color(0xFFFFFFFF);
+  static const Color lightPrimary = Color(0xFF000000);
+  static const Color lightPrimaryText = Color(0xFF000000);
+  static const Color lightSecondaryText = Color(0xFF6C6C70);
+  static const Color lightMutedText = Color(0xFF8E8E93);
+  static const Color lightBorder = Color(0xFFC6C6C8);
+  static const Color lightButton = Color(0xFF000000);
   static const Color lightButtonText = Color(0xFFFFFFFF);
 
-  // Dark mode palette
-  static const Color darkBackground = Color(0xFF0A0C10);
-  static const Color darkSurface = Color(0xFF121620);
-  static const Color darkElevatedSurface = Color(0xFF181E2C);
-  static const Color darkPrimary = Color(0xFFF8FAFC);
-  static const Color darkPrimaryText = Color(0xFFF8FAFC);
-  static const Color darkSecondaryText = Color(0xFF94A3B8);
-  static const Color darkMutedText = Color(0xFF64748B);
-  static const Color darkBorder = Color(0xFF242C3D);
-  static const Color darkButton = Color(0xFFF8FAFC);
-  static const Color darkButtonText = Color(0xFF0A0C10);
+  static const Color darkBackground = Color(0xFF000000);
+  static const Color darkSurface = Color(0xFF1C1C1E);
+  static const Color darkElevatedSurface = Color(0xFF2C2C2E);
+  static const Color darkPrimary = Color(0xFFFFFFFF);
+  static const Color darkPrimaryText = Color(0xFFFFFFFF);
+  static const Color darkSecondaryText = Color(0xFF8E8E93);
+  static const Color darkMutedText = Color(0xFF8E8E93);
+  static const Color darkBorder = Color(0xFF38383A);
+  static const Color darkButton = Color(0xFFFFFFFF);
+  static const Color darkButtonText = Color(0xFF000000);
 
-  // Semantic fallbacks for static backward compatibility
-  static const Color background = lightBackground;
-  static const Color backgroundSoft = lightSurface;
-  static const Color surface = lightSurface;
-  static const Color surfaceSoft = Color(0xFFF1F4F9);
-  static const Color ink = lightPrimaryText;
-  static const Color muted = lightMutedText;
-  static const Color border = lightBorder;
-
-  static const Color accent = Color(0xFF4F46E5);
-  static const Color accentDark = Color(0xFF4338CA);
-  static const Color accentSoft = Color(0xFFEEF2FF);
-
-  static const Color blue = Color(0xFF2563EB);
-  static const Color blueSoft = Color(0xFFEFF6FF);
-  static const Color orange = Color(0xFFF59E0B);
-  static const Color orangeSoft = Color(0xFFFEF3C7);
-  static const Color pink = Color(0xFFEC4899);
-  static const Color pinkSoft = Color(0xFFFDF2F8);
-  static const Color lilac = Color(0xFFF5F3FF);
-  static const Color success = Color(0xFF00D284);
-  static const Color danger = Color(0xFFEF4444);
-  static const Color dangerSoft = Color(0xFFFEE2E2);
-  static const Color warningSoft = Color(0xFFFEF3C7);
-
-  static const LinearGradient pageGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [lightBackground, lightSurface],
-  );
-
-  static const LinearGradient accentGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [accent, accentDark],
-  );
-
-  static const LinearGradient blueGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF60A5FA), blue],
-  );
-
-  static const LinearGradient orangeGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFFFDBA74), orange],
-  );
-
-  static const LinearGradient pinkGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFFF472B6), pink],
-  );
-
-  static const LinearGradient lilacGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [surfaceSoft, border],
-  );
-
-  static const LinearGradient softCardGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [surface, Color(0xFFF8FAFC)],
-  );
-
-  static List<BoxShadow> get panelShadow => const [
-    BoxShadow(color: Color(0x0A000000), blurRadius: 16, offset: Offset(0, 4)),
-  ];
-
-  static List<BoxShadow> get darkPanelShadow => const [
-    BoxShadow(color: Color(0x40000000), blurRadius: 16, offset: Offset(0, 4)),
-  ];
+  // Accent/semantic tokens used for ColorScheme construction below and for
+  // Flavor Studio's tone previews. Theme-neutral (sourced from the light
+  // palette) since flavor tone swatches don't switch with light/dark mode.
+  // Must stay identical to AppColorsExtension.light's equivalent fields.
+  static const Color accent = Color(0xFF007AFF);
+  static const Color accentDark = Color(0xFF0051A8);
+  static const Color accentSoft = Color(0xFFE5F1FF);
+  static const Color blue = Color(0xFF007AFF);
+  static const Color blueSoft = Color(0xFFE5F1FF);
+  static const Color orange = Color(0xFFFF9500);
+  static const Color orangeSoft = Color(0xFFFFF3E0);
+  static const Color pink = Color(0xFFFF2D55);
+  static const Color pinkSoft = Color(0xFFFFEBF0);
+  static const Color danger = Color(0xFFFF3B30);
 
   static Color flavorToneColor(FlavorTone tone) {
     return switch (tone) {
@@ -544,27 +464,11 @@ class AppTheme {
 
   static LinearGradient flavorToneGradient(FlavorTone tone) {
     return switch (tone) {
-      FlavorTone.mint => accentGradient,
-      FlavorTone.sky => blueGradient,
-      FlavorTone.peach => orangeGradient,
-      FlavorTone.lilac => pinkGradient,
+      FlavorTone.mint => AppDecorationsExtension.light.accentGradient,
+      FlavorTone.sky => AppDecorationsExtension.light.blueGradient,
+      FlavorTone.peach => AppDecorationsExtension.light.orangeGradient,
+      FlavorTone.lilac => AppDecorationsExtension.light.pinkGradient,
     };
-  }
-
-  static BoxDecoration panelDecoration({
-    Color? color,
-    Gradient? gradient,
-    double radius = 16,
-    Color? borderColor,
-    bool elevated = true,
-  }) {
-    return BoxDecoration(
-      color: gradient == null ? (color ?? surface) : null,
-      gradient: gradient,
-      borderRadius: BorderRadius.circular(radius),
-      border: Border.all(color: borderColor ?? border),
-      boxShadow: elevated ? panelShadow : null,
-    );
   }
 
   static ThemeData light({Color? seedColor}) {
@@ -599,6 +503,7 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      fontFamily: 'Inter',
       colorScheme: scheme,
       scaffoldBackgroundColor: lightBackground,
       canvasColor: lightBackground,
@@ -957,6 +862,7 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      fontFamily: 'Inter',
       colorScheme: scheme,
       scaffoldBackgroundColor: darkBackground,
       canvasColor: darkBackground,

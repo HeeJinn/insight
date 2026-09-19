@@ -7,9 +7,9 @@ A Flutter thesis prototype that replaces manual classroom roll calls with a fast
 - **Multi-Platform Support**: Android, iOS, Windows, macOS, Web
 - **Offline Operation**: All ML inference happens locally on device
 - **Fast Recognition**: Target latency < 1 second per face scan
-- **Admin Dashboard (Material 3 UX)**: Student registration, student management (search/filter/edit/delete), attendance log viewing
+- **Admin Dashboard**: Guided 5-angle student registration, student management (search/filter/edit/delete), attendance log viewing
 - **Kiosk Mode**: Real-time camera scanning for attendance
-- **Insights Module**: Search by student name/ID, daily coverage metrics, recent check-ins, full logs view
+- **Insights Module**: Search by student name/ID, daily coverage metrics, recent check-ins, full logs view — reactively updates as attendance is logged elsewhere (e.g. from a kiosk scan), no manual refresh needed
 - **First-Run Experience**: Tutorial tabs + privacy policy consent flow
 
 ## Tech Stack
@@ -17,11 +17,13 @@ A Flutter thesis prototype that replaces manual classroom roll calls with a fast
 - **Framework**: Flutter (Dart)
 - **State Management**: flutter_riverpod
 - **Navigation**: go_router
-- **ML Engine**: tflite_flutter (Face Detection + Face Recognition)
+- **ML Engine**: tflite_flutter (Face Detection + Face Recognition, used for kiosk attendance recognition)
 - **Storage**: hive_ce (offline NoSQL)
 - **Image Processing**: image (Dart native cropping)
 - **Camera**: camera package
 - **Image Picking**: image_picker, file_picker
+- **Micro-interactions**: lottie (success/empty-state animations)
+- **Typeface**: Inter, vendored as a variable font asset (no runtime network dependency)
 
 ## Setup
 
@@ -46,7 +48,7 @@ Ensure models match these input/output shapes.
 ### Registration Flow
 
 1. Admin inputs student details (Name, ID)
-2. Captures/uploads 5 baseline photos
+2. Captures 5 baseline photos via a guided capture dialog — a 3-2-1 countdown auto-captures each of the 5 angle slots (no on-device pose estimation, works identically on every supported platform), or photos can be uploaded from the gallery instead
 3. Processes photos through TFLite Detection (crop) and Recognition (embeddings)
 4. Saves baseline embeddings to Hive database
 
@@ -84,8 +86,14 @@ The prototype now exposes measurable indicators that can be cited in a thesis pa
 
 These indicators are visible in-app (Admin/Insights) and can be mapped to evaluation criteria such as usability, responsiveness, reliability, and deployment feasibility.
 
-## UI/UX Notes (Material 3)
+## Design System
 
-- Uses Material 3 components (AppBar, TabBar/TabBarView, SearchBar, Cards, FilterChip, Filled/Outlined buttons).
-- Responsive behavior is designed for portrait and landscape using bounded layouts and scroll-safe content containers.
-- Admin flows are organized into clear tabs: Register, Students, Logs.
+The UI follows an Apple HIG-inspired direction layered on top of Flutter Material, consolidated into a single set of tokens and shared components rather than screen-by-screen styling:
+
+- **Tokens**: `context.appColors` / `context.appDecorations` (`lib/app_theme.dart`) are the single source of truth for color across light and dark mode — screens should never hardcode hex colors. Typography goes through `AppleTypography` (`lib/core/theme/apple_theme.dart`).
+- **Shared components** (`lib/core/widgets/`): `AppIconBadge`, `AppAsyncView`/`AppAsyncView.combine2` (Hive-box async loading/error/data states), `AppDialog`, `AppSearchField` (an iOS-style search bar with a centered idle state and a sliding Cancel action).
+- **Apple-chrome primitives** (`lib/widgets/apple_chrome.dart`): `AppleInsetGroupedSection`, `AppleListRow`, `AppleTactileButton` for grouped list-style content; `lib/widgets/app_chrome.dart`'s `AppPanel` for freeform/hero blocks.
+- **Navigation**: `AppDock` (`lib/widgets/app_dock.dart`) is a custom bottom nav bar — inactive tabs are icon-only, the active tab expands into a labeled pill.
+- **Micro-interactions**: Lottie animations for success confirmations and empty states (`assets/animations/`).
+- Responsive behavior is designed for portrait and landscape using bounded layouts and scroll-safe content containers, with breakpoints centralized in `lib/widgets/responsive_utils.dart`.
+- Admin flows are organized into clear tabs: Enrollment, Logs.

@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_ce/hive.dart';
 import '../app_theme.dart';
+import '../core/widgets/core_widgets.dart';
 import '../models/student.dart';
 import 'app_chrome.dart';
 import 'biometric_indicators.dart';
@@ -22,7 +23,6 @@ class _StudentListState extends State<StudentList> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final students = widget.studentsBox.values.where((s) {
       final q = query.trim().toLowerCase();
       final matchesQuery =
@@ -58,69 +58,65 @@ class _StudentListState extends State<StudentList> {
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       slivers: [
         SliverToBoxAdapter(
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: scheme.surface.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Theme.of(context).dividerColor),
-            ),
-            child: SearchBar(
-              hintText: 'Search student name or ID',
-              leading: const Icon(Icons.search, size: 20),
-              onChanged: (value) => setState(() => query = value),
-              backgroundColor: WidgetStatePropertyAll(
-                Theme.of(context).colorScheme.surfaceContainerHighest,
-              ),
-              elevation: const WidgetStatePropertyAll(0),
-              constraints: const BoxConstraints(minHeight: 46),
-            ),
-          ),
-        ),
-        const SliverToBoxAdapter(child: SizedBox(height: 10)),
-        SliverToBoxAdapter(
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              FilledButton.tonalIcon(
-                onPressed: () => _openFilterSheet(context),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 36),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 7,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final toolbarButtons = [
+                _ToolbarButton(
+                  icon: Icons.tune_rounded,
+                  label: 'Filters',
+                  showDot: hasActiveFilter,
+                  onTap: () => _openFilterSheet(context),
+                ),
+                _ToolbarButton(
+                  icon: Icons.person_add_alt_1_rounded,
+                  label: 'Open register',
+                  onTap: () => context.go('/admin'),
+                ),
+              ];
+              final countTag = AppPillTag(
+                icon: Icons.groups_2_rounded,
+                label: '${students.length} total',
+              );
+
+              if (constraints.maxWidth >= 560) {
+                // Wide layout: search field stays a sensible width instead
+                // of stretching edge-to-edge, with actions on the same row.
+                return Row(
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 360),
+                      child: AppSearchField(
+                        hintText: 'Search student name or ID',
+                        onChanged: (value) => setState(() => query = value),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ...toolbarButtons.expand(
+                      (button) => [button, const SizedBox(width: 8)],
+                    ),
+                    const Spacer(),
+                    countTag,
+                  ],
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppSearchField(
+                    hintText: 'Search student name or ID',
+                    onChanged: (value) => setState(() => query = value),
                   ),
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                icon: Badge(
-                  isLabelVisible: hasActiveFilter,
-                  smallSize: 7,
-                  child: const Icon(Icons.tune_outlined),
-                ),
-                label: const Text('Filters'),
-              ),
-              FilledButton.tonalIcon(
-                onPressed: () => context.go('/admin'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 36),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 7,
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [...toolbarButtons, countTag],
                   ),
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                icon: const Icon(Icons.person_add_alt_1_outlined),
-                label: const Text('Open register'),
-              ),
-              Chip(
-                avatar: const Icon(Icons.groups_2_outlined, size: 16),
-                label: Text('${students.length} total'),
-              ),
-            ],
+                ],
+              );
+            },
           ),
         ),
         if (hasActiveFilter) ...[
@@ -161,29 +157,16 @@ class _StudentListState extends State<StudentList> {
             ),
           )
         else
-          SliverList(
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final student = students[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Theme.of(context).dividerColor.withValues(
-                          alpha: 0.55,
-                        ),
-                      ),
-                    ),
-                  ),
-                  child: _StudentTile(
-                    student: student,
-                    onEdit: () => _editStudent(context, student),
-                    onDelete: () => _deleteStudent(context, student),
-                  ),
+          SliverToBoxAdapter(
+            child: AppleInsetGroupedSection(
+              children: students.map(
+                (student) => _StudentTile(
+                  student: student,
+                  onEdit: () => _editStudent(context, student),
+                  onDelete: () => _deleteStudent(context, student),
                 ),
-              );
-            }, childCount: students.length),
+              ).toList(),
+            ),
           ),
       ],
     );
@@ -339,25 +322,14 @@ class _StudentListState extends State<StudentList> {
   Future<bool> _confirmDeleteStudent(
     BuildContext context,
     Student student,
-  ) async {
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Student'),
-        content: Text('Remove ${student.name} from the local database?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+  ) {
+    return AppDialog.confirm(
+      context,
+      title: 'Delete Student?',
+      message: 'Remove ${student.name} from the local database? This can\'t be undone.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
     );
-    return shouldDelete ?? false;
   }
 
   Future<void> _deleteStudent(BuildContext context, Student student) async {
@@ -373,43 +345,48 @@ class _StudentListState extends State<StudentList> {
 
   void _editStudent(BuildContext context, Student student) {
     final nameController = TextEditingController(text: student.name);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Student'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              initialValue: student.id,
-              readOnly: true,
-              decoration: const InputDecoration(labelText: 'Student ID'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Student name'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+    AppDialog.show<void>(
+      context,
+      title: 'Edit Student',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextFormField(
+            initialValue: student.id,
+            readOnly: true,
+            decoration: const InputDecoration(labelText: 'Student ID'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: nameController,
+            decoration: const InputDecoration(labelText: 'Student name'),
+          ),
+        ],
+      ),
+      actions: (dialogContext) => [
+        Expanded(
+          child: AppleTactileButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            backgroundColor: dialogContext.appColors.surface,
+            foregroundColor: dialogContext.appColors.primaryText,
             child: const Text('Cancel'),
           ),
-          FilledButton(
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: AppleTactileButton(
             onPressed: () async {
               final updatedName = nameController.text.trim();
               if (updatedName.isEmpty) return;
               student.name = updatedName;
               await student.save();
               if (mounted) setState(() {});
-              if (context.mounted) Navigator.of(context).pop();
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
             },
             child: const Text('Save'),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -427,24 +404,14 @@ class _StudentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: Theme.of(context).dividerColor.withValues(alpha: 0.7),
-          width: 0.8,
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
       child: Row(
         children: [
           _AvatarLetter(name: student.name),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -453,36 +420,19 @@ class _StudentTile extends StatelessWidget {
                   student.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
+                  style: AppleTypography.body.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: context.appColors.primaryText,
                   ),
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 3),
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.accent.withValues(alpha: isDark ? 0.18 : 0.08),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: colors.accent.withValues(alpha: isDark ? 0.28 : 0.15),
-                          width: 0.7,
-                        ),
-                      ),
-                      child: Text(
-                        'ID ${student.id}',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.4,
-                          color: colors.accent,
-                        ),
+                    Text(
+                      'ID ${student.id}',
+                      style: AppleTypography.footnote.copyWith(
+                        fontFeatures: AppleTypography.tabular,
+                        color: context.appColors.secondaryText,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -498,11 +448,20 @@ class _StudentTile extends StatelessWidget {
           ),
           PopupMenuButton<String>(
             icon: Icon(
-              Icons.more_vert_rounded,
-              size: 18,
-              color: colors.mutedText,
+              Icons.more_horiz_rounded,
+              size: 20,
+              color: context.appColors.secondaryText,
             ),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: context.appColors.border,
+                width: 0.5,
+              ),
+            ),
+            color: isDark
+                ? context.appColors.surface
+                : context.appColors.elevatedSurface,
             onSelected: (value) {
               if (value == 'edit') {
                 onEdit();
@@ -517,7 +476,7 @@ class _StudentTile extends StatelessWidget {
                   children: [
                     Icon(Icons.edit_outlined, size: 16),
                     SizedBox(width: 8),
-                    Text('Edit name'),
+                    Text('Edit Name'),
                   ],
                 ),
               ),
@@ -525,9 +484,16 @@ class _StudentTile extends StatelessWidget {
                 value: 'delete',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_outline, size: 16, color: colors.danger),
+                    Icon(
+                      Icons.delete_outline_rounded,
+                      size: 16,
+                      color: context.appColors.danger,
+                    ),
                     const SizedBox(width: 8),
-                    Text('Delete profile', style: TextStyle(color: colors.danger)),
+                    Text(
+                      'Delete',
+                      style: TextStyle(color: context.appColors.danger),
+                    ),
                   ],
                 ),
               ),
@@ -567,6 +533,72 @@ class _AvatarLetter extends StatelessWidget {
           color: colors.accent,
           fontWeight: FontWeight.w800,
           fontSize: 16,
+        ),
+      ),
+    );
+  }
+}
+
+class _ToolbarButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool showDot;
+
+  const _ToolbarButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.showDot = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: context.appColors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: context.appColors.border, width: 0.8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(icon, size: 16, color: context.appColors.primaryText),
+                  if (showDot)
+                    Positioned(
+                      top: -2,
+                      right: -2,
+                      child: Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: context.appColors.accent,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: AppleTypography.footnote.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: context.appColors.primaryText,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

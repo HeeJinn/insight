@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
+import '../app_theme.dart';
 import '../models/attendance.dart';
 import '../models/student.dart';
 
@@ -19,6 +20,7 @@ class AttendanceLogs extends StatelessWidget {
       ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     if (logs.isEmpty) {
+      final colors = context.appColors;
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
         alignment: Alignment.center,
@@ -29,32 +31,32 @@ class AttendanceLogs extends StatelessWidget {
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: const Color(0xFF1C1C1E),
+                color: colors.surface,
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF2C2C2E)),
+                border: Border.all(color: colors.border),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.event_note_rounded,
                 size: 24,
-                color: Color(0xFF8E8E93),
+                color: colors.mutedText,
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'No Check-in Records Yet',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: Colors.white,
+                color: colors.primaryText,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Kiosk terminal live recognitions will appear here automatically in real time.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
-                color: Color(0xFF8E8E93),
+                color: colors.mutedText,
                 height: 1.4,
               ),
             ),
@@ -64,6 +66,8 @@ class AttendanceLogs extends StatelessWidget {
     }
 
     return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 16),
       itemCount: logs.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -92,11 +96,11 @@ class AttendanceLogs extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 4, top: 4, bottom: 6),
                 child: Text(
                   _humanDayLabel(log.timestamp).toUpperCase(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.6,
-                    color: Color(0xFF8E8E93),
+                    color: context.appColors.mutedText,
                   ),
                 ),
               ),
@@ -146,12 +150,13 @@ class _AppleAttendanceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF141416),
+        color: colors.elevatedSurface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF242428)),
+        border: Border.all(color: colors.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -160,14 +165,10 @@ class _AppleAttendanceRow extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: const Color(0xFF30D158).withValues(alpha: 0.15),
+              color: colors.success.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(
-              Icons.check_rounded,
-              color: Color(0xFF30D158),
-              size: 18,
-            ),
+            child: Icon(Icons.check_rounded, color: colors.success, size: 18),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -178,41 +179,45 @@ class _AppleAttendanceRow extends StatelessWidget {
                   studentName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: colors.primaryText,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1C1C1E),
+                        color: colors.surface,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         'ID $studentId',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF8E8E93),
+                          color: colors.mutedText,
                           fontFamily: 'monospace',
                         ),
                       ),
                     ),
-                    if ((sessionTitle ?? '').isNotEmpty || (room ?? '').isNotEmpty) ...[
+                    if ((sessionTitle ?? '').isNotEmpty ||
+                        (room ?? '').isNotEmpty) ...[
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           '${sessionTitle ?? 'Session'}${(room ?? '').isNotEmpty ? ' · ${room!}' : ''}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF7D7AFF),
+                            color: colors.accent,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -227,15 +232,15 @@ class _AppleAttendanceRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
             decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E),
+              color: colors.surface,
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
               timeLabel,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFFE5E5EA),
+                color: colors.secondaryText,
                 fontFamily: 'monospace',
               ),
             ),
@@ -245,4 +250,3 @@ class _AppleAttendanceRow extends StatelessWidget {
     );
   }
 }
-

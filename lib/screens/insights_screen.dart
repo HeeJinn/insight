@@ -1,11 +1,13 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../models/attendance.dart';
-import '../models/student.dart';
+import 'package:lottie/lottie.dart';
+import '../app_theme.dart';
+import '../core/widgets/core_widgets.dart';
 import '../providers/hive_provider.dart';
 import '../widgets/app_chrome.dart';
-import '../widgets/biometric_indicators.dart';
 import '../widgets/responsive_utils.dart';
 
 class InsightsScreen extends ConsumerStatefulWidget {
@@ -16,666 +18,526 @@ class InsightsScreen extends ConsumerStatefulWidget {
 }
 
 class _InsightsScreenState extends ConsumerState<InsightsScreen> {
+  int rangeDays = 1; // 1: Today, 7: 7D, 30: 30D, 0: All
   String query = '';
-  int rangeDays = 1;
 
   @override
   Widget build(BuildContext context) {
     final studentsAsync = ref.watch(studentsBoxProvider);
     final attendanceAsync = ref.watch(attendanceBoxProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: AppBackground(
-        child: studentsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Center(child: Text('Error: $error')),
-          data: (studentsBox) => attendanceAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, stack) => Center(child: Text('Error: $error')),
-            data: (attendanceBox) => StreamBuilder(
-              stream: attendanceBox.watch(),
-              builder: (context, _) {
-                final idToName = <String, String>{
-                  for (final Student s in studentsBox.values) s.id: s.name,
-                };
+        child: AppAsyncView.combine2(
+          a: studentsAsync,
+          b: attendanceAsync,
+          data: (context, studentsBox, attendanceBox) {
+            // Box providers only resolve once; without watching the boxes
+            // directly, newly logged attendance (e.g. from a kiosk scan on
+            // another screen) wouldn't show up here until something else
+            // happened to trigger a rebuild.
+            return StreamBuilder(
+              stream: studentsBox.watch(),
+              builder: (context, _) => StreamBuilder(
+                stream: attendanceBox.watch(),
+                builder: (context, _) {
+                  final idToName = {
+                    for (final s in studentsBox.values) s.id: s.name,
+                  };
 
-                final now = DateTime.now();
-                final dayStart = DateTime(now.year, now.month, now.day);
-                final rangeStart = dayStart.subtract(
-                  Duration(days: rangeDays - 1),
-                );
-                final inRangeLogs = attendanceBox.values
-                    .where((a) => !a.timestamp.isBefore(rangeStart))
-                    .toList();
-                final recentLogs = inRangeLogs.length;
-                final uniqueToday = inRangeLogs.map((a) => a.studentId).toSet().length;
-                final coverage = studentsBox.isEmpty
-                    ? 0
-                    : ((uniqueToday / studentsBox.length) * 100).round();
+                  final now = DateTime.now();
+                  final dayStart = DateTime(now.year, now.month, now.day);
+                  final rangeStart = rangeDays == 0
+                      ? DateTime.fromMillisecondsSinceEpoch(0)
+                      : (rangeDays == 1
+                            ? dayStart
+                            : now.subtract(Duration(days: rangeDays)));
 
-                final q = query.trim().toLowerCase();
-                final filtered = attendanceBox.values.where((a) {
-                  if (q.isEmpty) {
-                    return !a.timestamp.isBefore(rangeStart);
-                  }
-                  final id = a.studentId.toLowerCase();
-                  final name = (idToName[a.studentId] ?? '').toLowerCase();
-                  final matchesStudent = id.contains(q) || name.contains(q);
-                  return matchesStudent;
-                }).toList()..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-                final trendDays = List<DateTime>.generate(
-                  7,
-                  (i) => dayStart.subtract(Duration(days: 6 - i)),
-                );
-                final trendCounts = trendDays.map((day) {
-                  final next = day.add(const Duration(days: 1));
-                  return attendanceBox.values
-                      .where(
-                        (a) =>
-                            !a.timestamp.isBefore(day) && a.timestamp.isBefore(next),
-                      )
+                  final inRangeLogs = attendanceBox.values
+                      .where((a) => !a.timestamp.isBefore(rangeStart))
+                      .toList();
+                  final recentLogs = inRangeLogs.length;
+                  final uniqueStudents = inRangeLogs
+                      .map((a) => a.studentId)
+                      .toSet()
                       .length;
-                }).toList();
+                  final coverage = studentsBox.isEmpty
+                      ? 0
+                      : ((uniqueStudents / studentsBox.length) * 100).round();
 
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    final width = constraints.maxWidth;
-                    final wide = width >= 1080;
-                    final contentWidth = AppBreakpoints.contentWidth(width);
-                    final padding = AppBreakpoints.pagePadding(width);
-                    final bottomSafeGap = AppBreakpoints.navAwareBottomInset(
-                      context,
-                    );
+                  final q = query.trim().toLowerCase();
+                  final filtered =
+                      attendanceBox.values.where((a) {
+                          if (q.isEmpty) {
+                            return !a.timestamp.isBefore(rangeStart);
+                          }
+                          final id = a.studentId.toLowerCase();
+                          final name = (idToName[a.studentId] ?? '')
+                              .toLowerCase();
+                          return id.contains(q) || name.contains(q);
+                        }).toList()
+                        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-                    return SafeArea(
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(maxWidth: contentWidth),
-                          child: CustomScrollView(
-                            keyboardDismissBehavior:
-                                ScrollViewKeyboardDismissBehavior.onDrag,
-                            slivers: [
-                              SliverPadding(
-                                padding: padding.copyWith(bottom: bottomSafeGap),
-                                sliver: SliverList.list(
-                                  children: [
-                                    _TopTitleBar(
-                                      canPop: context.canPop(),
-                                      rangeDays: rangeDays,
-                                      onRangeChanged: (value) =>
-                                          setState(() => rangeDays = value),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    AppPanel(
-                                      radius: 22,
-                                      padding: const EdgeInsets.all(14),
-                                      child: SearchBar(
-                                        hintText: 'Search by student name or ID',
-                                        leading: const Icon(Icons.search),
-                                        onChanged: (value) =>
-                                            setState(() => query = value),
-                                        backgroundColor: WidgetStatePropertyAll(
-                                          Theme.of(
-                                            context,
-                                          ).colorScheme.surfaceContainerHighest,
-                                        ),
-                                        shape: WidgetStatePropertyAll(
-                                          RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(14),
+                  final trendDays = List<DateTime>.generate(
+                    7,
+                    (i) => dayStart.subtract(Duration(days: 6 - i)),
+                  );
+                  final trendCounts = trendDays.map((day) {
+                    final next = day.add(const Duration(days: 1));
+                    return attendanceBox.values
+                        .where(
+                          (a) =>
+                              !a.timestamp.isBefore(day) &&
+                              a.timestamp.isBefore(next),
+                        )
+                        .length;
+                  }).toList();
+
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final contentWidth = AppBreakpoints.contentWidth(
+                        constraints.maxWidth,
+                      );
+                      final padding = AppBreakpoints.pagePadding(
+                        constraints.maxWidth,
+                      );
+
+                      return SafeArea(
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: contentWidth),
+                            child: ListView(
+                              keyboardDismissBehavior:
+                                  ScrollViewKeyboardDismissBehavior.onDrag,
+                              padding: padding.copyWith(
+                                bottom: AppBreakpoints.navAwareBottomInset(
+                                  context,
+                                ),
+                              ),
+                              children: [
+                                // Header & Segmented control
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 4,
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      if (context.canPop()) ...[
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.arrow_back_ios_new_rounded,
+                                            size: 20,
                                           ),
+                                          onPressed: () => context.pop(),
+                                        ),
+                                        const SizedBox(width: 4),
+                                      ],
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'ANALYTICS',
+                                              style: AppleTypography.caption1
+                                                  .copyWith(
+                                                    fontWeight: FontWeight.w600,
+                                                    letterSpacing: 0.8,
+                                                    color: context
+                                                        .appColors
+                                                        .secondaryText,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Insights',
+                                              style: AppleTypography.largeTitle
+                                                  .copyWith(
+                                                    color: context
+                                                        .appColors
+                                                        .primaryText,
+                                                  ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 18),
-                                    _KpiStrip(
-                                      wide: wide,
-                                      students: studentsBox.length,
-                                      logsInRange: recentLogs,
-                                      coverage: coverage,
-                                      rangeDays: rangeDays,
-                                    ),
-                                    const SizedBox(height: 18),
-                                    _TrendCard(
-                                      dayCounts: trendCounts,
-                                      coverage: coverage,
-                                      logsInRange: recentLogs,
-                                      rangeDays: rangeDays,
-                                    ),
-                                    const SizedBox(height: 18),
-                                    AppPanel(
-                                      radius: 22,
-                                      child: _RecentActivityList(
-                                        logs: filtered,
-                                        idToName: idToName,
-                                        emptyMessage: attendanceBox.isEmpty
-                                            ? 'No attendance has been logged yet.'
-                                            : filtered.isEmpty && q.isNotEmpty
-                                            ? 'No check-ins match your search.'
-                                            : 'No check-ins for this filter.',
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: TextButton.icon(
+                                      IconButton(
+                                        icon: const Icon(Icons.history_rounded),
+                                        tooltip: 'All Logs',
                                         onPressed: () =>
                                             context.push('/insights/logs'),
-                                        icon: const Icon(Icons.open_in_new),
-                                        label: const Text('View all check-ins'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+
+                                // Apple Segmented Control for timeframes
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: CupertinoSlidingSegmentedControl<int>(
+                                    groupValue: rangeDays,
+                                    backgroundColor: isDark
+                                        ? context.appColors.surface
+                                        : const Color(0xFFE5E5EA),
+                                    thumbColor: isDark
+                                        ? context.appColors.elevatedSurface
+                                        : Colors.white,
+                                    children: const {
+                                      1: Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        child: Text('Today'),
+                                      ),
+                                      7: Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        child: Text('7 Days'),
+                                      ),
+                                      30: Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        child: Text('30 Days'),
+                                      ),
+                                      0: Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        child: Text('All'),
+                                      ),
+                                    },
+                                    onValueChanged: (value) {
+                                      if (value != null) {
+                                        HapticFeedback.selectionClick();
+                                        setState(() => rangeDays = value);
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
+
+                                // Inset Grouped Section for Metric Statistics
+                                AppleInsetGroupedSection(
+                                  header: 'Key Metrics',
+                                  children: [
+                                    AppleListRow(
+                                      leading: AppIconBadge(
+                                        icon: Icons.people_alt_rounded,
+                                        tint: context.appColors.blue,
+                                        size: 32,
+                                      ),
+                                      title: 'Enrolled Students',
+                                      subtitle:
+                                          'Total biometric identities registered',
+                                      trailing: Text(
+                                        '${studentsBox.length}',
+                                        style: AppleTypography.tabularNumber(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: context.appColors.primaryText,
+                                        ),
+                                      ),
+                                    ),
+                                    AppleListRow(
+                                      leading: AppIconBadge(
+                                        icon: Icons.check_circle_rounded,
+                                        tint: context.appColors.success,
+                                        size: 32,
+                                      ),
+                                      title: 'Check-ins in Range',
+                                      subtitle: rangeDays == 1
+                                          ? 'Scanned today'
+                                          : 'Total events over selected timeframe',
+                                      trailing: Text(
+                                        '$recentLogs',
+                                        style: AppleTypography.tabularNumber(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: context.appColors.primaryText,
+                                        ),
+                                      ),
+                                    ),
+                                    AppleListRow(
+                                      leading: AppIconBadge(
+                                        icon: Icons.pie_chart_rounded,
+                                        tint: context.appColors.warning,
+                                        size: 32,
+                                      ),
+                                      title: 'Attendance Coverage',
+                                      subtitle:
+                                          '$uniqueStudents of ${studentsBox.length} students',
+                                      trailing: Text(
+                                        '$coverage%',
+                                        style: AppleTypography.tabularNumber(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: context.appColors.primaryText,
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
-class _MetricCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final Color color;
-  final IconData icon;
-
-  const _MetricCard({
-    required this.title,
-    required this.value,
-    required this.color,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final surfaceAlt = Theme.of(context).colorScheme.surfaceContainerHighest;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return AppPanel(
-      radius: 14,
-      color: surfaceAlt,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: isDark ? 0.2 : 0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: color.withValues(alpha: isDark ? 0.35 : 0.2),
-                width: 0.8,
-              ),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.6,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.6,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecentActivityList extends StatelessWidget {
-  final List<Attendance> logs;
-  final Map<String, String> idToName;
-  final String emptyMessage;
-
-  const _RecentActivityList({
-    required this.logs,
-    required this.idToName,
-    required this.emptyMessage,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final sorted = [...logs]
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Recent check-ins',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.3,
-                    ),
-              ),
-            ),
-            const TelemetryBadge(label: 'LATEST AUDIT'),
-          ],
-        ),
-        const SizedBox(height: 14),
-        if (sorted.isEmpty)
-          Text(
-            emptyMessage.isNotEmpty
-                ? emptyMessage
-                : 'No attendance has been logged yet.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          )
-        else
-          ...sorted
-              .take(5)
-              .map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Theme.of(context).dividerColor.withValues(alpha: 0.6),
-                        width: 0.8,
-                      ),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF00D284).withValues(alpha: isDark ? 0.2 : 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.check_circle_outline_rounded,
-                            color: Color(0xFF00D284),
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                idToName[item.studentId] ?? 'Unknown student',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
+                                // 7-Day Velocity Activity Chart
+                                AppleInsetGroupedSection(
+                                  header: '7-Day Activity Velocity',
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 16,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.end,
+                                            children: [
+                                              for (int i = 0; i < 7; i++) ...[
+                                                _DayBar(
+                                                  dayLabel: _weekdayShort(
+                                                    trendDays[i].weekday,
+                                                  ),
+                                                  count: trendCounts[i],
+                                                  maxCount: trendCounts.fold(
+                                                    1,
+                                                    (m, c) => c > m ? c : m,
+                                                  ),
+                                                  isToday: i == 6,
+                                                  maxBarHeight:
+                                                      AppBreakpoints.isCompact(
+                                                        constraints.maxWidth,
+                                                      )
+                                                      ? 70
+                                                      : 120,
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'ID ${item.studentId} • ${_dayLabel(item.timestamp)}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+
+                                // Search audit logs by student name or ID
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: SearchBar(
+                                    hintText: 'Search by name or student ID',
+                                    leading: const Icon(
+                                      Icons.search_rounded,
+                                      size: 20,
+                                    ),
+                                    trailing: query.isEmpty
+                                        ? null
+                                        : [
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.close_rounded,
+                                                size: 18,
+                                              ),
+                                              tooltip: 'Clear search',
+                                              onPressed: () =>
+                                                  setState(() => query = ''),
+                                            ),
+                                          ],
+                                    onChanged: (value) =>
+                                        setState(() => query = value),
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surface,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '${item.timestamp.hour.toString().padLeft(2, '0')}:${item.timestamp.minute.toString().padLeft(2, '0')}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              fontFeatures: [FontFeature.tabularFigures()],
+                                const SizedBox(height: 18),
+
+                                // Inset Grouped Section for Recent Activity Feed
+                                AppleInsetGroupedSection(
+                                  header: query.isEmpty
+                                      ? 'Recent Audit Logs'
+                                      : 'Search Results',
+                                  footer:
+                                      'Tap any row to view full timestamp metadata',
+                                  children: [
+                                    if (filtered.isEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.all(24.0),
+                                        child: Center(
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              // "Empty State" by Creative Salt &
+                                              // Pepper, via LottieFiles (Lottie
+                                              // Simple License).
+                                              SizedBox(
+                                                width: 96,
+                                                height: 96,
+                                                child: Lottie.asset(
+                                                  'assets/animations/empty_state.json',
+                                                  repeat: true,
+                                                  fit: BoxFit.contain,
+                                                  errorBuilder:
+                                                      (
+                                                        context,
+                                                        error,
+                                                        stackTrace,
+                                                      ) =>
+                                                          const SizedBox.shrink(),
+                                                ),
+                                              ),
+                                              Text(
+                                                query.isEmpty
+                                                    ? 'No check-ins recorded for this timeframe.'
+                                                    : 'No check-ins match "$query".',
+                                                style: AppleTypography.subhead
+                                                    .copyWith(
+                                                      color: context
+                                                          .appColors
+                                                          .secondaryText,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      for (final log in filtered.take(6))
+                                        AppleListRow(
+                                          leading: AppIconBadge(
+                                            icon: Icons.check_rounded,
+                                            tint: context.appColors.success,
+                                            size: 32,
+                                          ),
+                                          title:
+                                              idToName[log.studentId] ??
+                                              'Unknown Student',
+                                          subtitle:
+                                              'ID ${log.studentId} · ${_dayLabel(log.timestamp)}',
+                                          trailing: Text(
+                                            '${log.timestamp.hour.toString().padLeft(2, '0')}:${log.timestamp.minute.toString().padLeft(2, '0')}',
+                                            style: AppleTypography.footnote
+                                                .copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontFeatures:
+                                                      AppleTypography.tabular,
+                                                  color: context
+                                                      .appColors
+                                                      .secondaryText,
+                                                ),
+                                          ),
+                                          onTap: () =>
+                                              context.push('/insights/logs'),
+                                        ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
+                      );
+                    },
+                  );
+                },
               ),
-      ],
-    );
-  }
-}
-
-class _TopTitleBar extends StatelessWidget {
-  final bool canPop;
-  final int rangeDays;
-  final ValueChanged<int> onRangeChanged;
-
-  const _TopTitleBar({
-    required this.canPop,
-    required this.rangeDays,
-    required this.onRangeChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            if (canPop) ...[
-              IconButton.filledTonal(
-                onPressed: () => context.pop(),
-                icon: const Icon(Icons.arrow_back_rounded),
-              ),
-              const SizedBox(width: 8),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const TelemetryBadge(label: 'INSIGHT // TELEMETRY HUB', isLive: true),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Telemetry & Reports',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.6,
-                        ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Real-time attendance velocity and biometric confidence analytics',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-            IconButton.filledTonal(
-              onPressed: () => context.push('/privacy'),
-              icon: const Icon(Icons.privacy_tip_outlined, size: 20),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SegmentedButton<int>(
-          segments: const [
-            ButtonSegment(value: 1, label: Text('Today')),
-            ButtonSegment(value: 7, label: Text('7d Window')),
-            ButtonSegment(value: 30, label: Text('30d Month')),
-          ],
-          selected: {rangeDays},
-          onSelectionChanged: (selection) => onRangeChanged(selection.first),
-        ),
-      ],
-    );
-  }
-}
-
-class _KpiStrip extends StatelessWidget {
-  final bool wide;
-  final int students;
-  final int logsInRange;
-  final int coverage;
-  final int rangeDays;
-
-  const _KpiStrip({
-    required this.wide,
-    required this.students,
-    required this.logsInRange,
-    required this.coverage,
-    required this.rangeDays,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return wide
-        ? Row(
-            children: [
-              Expanded(
-                child: _MetricCard(
-                  title: 'Students',
-                  value: '$students',
-                  color: Theme.of(context).colorScheme.primary,
-                  icon: Icons.groups_2_outlined,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MetricCard(
-                  title: rangeDays == 1 ? 'Logs Today' : 'Logs ($rangeDays d)',
-                  value: '$logsInRange',
-                  color: Theme.of(context).colorScheme.secondary,
-                  icon: Icons.event_note_outlined,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MetricCard(
-                  title: 'Coverage',
-                  value: '$coverage%',
-                  color: Theme.of(context).colorScheme.tertiary,
-                  icon: Icons.query_stats_outlined,
-                ),
-              ),
-            ],
-          )
-        : Column(
-            children: [
-              _MetricCard(
-                title: 'Students',
-                value: '$students',
-                color: Theme.of(context).colorScheme.primary,
-                icon: Icons.groups_2_outlined,
-              ),
-              const SizedBox(height: 12),
-              _MetricCard(
-                title: rangeDays == 1 ? 'Logs Today' : 'Logs ($rangeDays d)',
-                value: '$logsInRange',
-                color: Theme.of(context).colorScheme.secondary,
-                icon: Icons.event_note_outlined,
-              ),
-              const SizedBox(height: 12),
-              _MetricCard(
-                title: 'Coverage',
-                value: '$coverage%',
-                color: Theme.of(context).colorScheme.tertiary,
-                icon: Icons.query_stats_outlined,
-              ),
-            ],
-          );
-  }
-}
-
-class _TrendCard extends StatelessWidget {
-  final List<int> dayCounts;
-  final int coverage;
-  final int logsInRange;
-  final int rangeDays;
-
-  const _TrendCard({
-    required this.dayCounts,
-    required this.coverage,
-    required this.logsInRange,
-    required this.rangeDays,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final maxCount = dayCounts.fold<int>(1, (a, b) => b > a ? b : a);
-    final last = dayCounts.isNotEmpty ? dayCounts.last : 0;
-    final prev = dayCounts.length > 1 ? dayCounts[dayCounts.length - 2] : 0;
-    final delta = last - prev;
-    return AppPanel(
-      radius: 22,
-      color: cs.surfaceContainerHigh,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Weekly trend',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              _DeltaChip(delta: delta),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '$logsInRange check-ins in selected range • $coverage% coverage',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              for (var i = 0; i < dayCounts.length; i++) ...[
-                Expanded(
-                  child: _DayBar(
-                    value: dayCounts[i],
-                    maxValue: maxCount,
-                    label: i == dayCounts.length - 1 ? 'Today' : 'D-${6 - i}',
-                  ),
-                ),
-                if (i != dayCounts.length - 1) const SizedBox(width: 8),
-              ],
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            rangeDays == 1
-                ? 'Viewing today only. Switch to 7d or 30d for trend-driven decisions.'
-                : 'Use this trend to spot low-attendance days and follow up quickly.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DeltaChip extends StatelessWidget {
-  final int delta;
-
-  const _DeltaChip({required this.delta});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final positive = delta >= 0;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: (positive ? cs.primary : cs.error).withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        '${positive ? '+' : ''}$delta vs yesterday',
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: positive ? cs.primary : cs.error,
-          fontWeight: FontWeight.w700,
+            );
+          },
         ),
       ),
     );
+  }
+
+  String _weekdayShort(int weekday) {
+    const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return names[(weekday - 1).clamp(0, 6)];
+  }
+
+  String _dayLabel(DateTime dt) {
+    final now = DateTime.now();
+    if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
+      return 'Today';
+    }
+    final yesterday = now.subtract(const Duration(days: 1));
+    if (dt.year == yesterday.year &&
+        dt.month == yesterday.month &&
+        dt.day == yesterday.day) {
+      return 'Yesterday';
+    }
+    return '${dt.month}/${dt.day}';
   }
 }
 
 class _DayBar extends StatelessWidget {
-  final int value;
-  final int maxValue;
-  final String label;
+  final String dayLabel;
+  final int count;
+  final int maxCount;
+  final bool isToday;
+  final double maxBarHeight;
 
   const _DayBar({
-    required this.value,
-    required this.maxValue,
-    required this.label,
+    required this.dayLabel,
+    required this.count,
+    required this.maxCount,
+    required this.isToday,
+    this.maxBarHeight = 70,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final heightFactor = maxValue == 0 ? 0.0 : value / maxValue;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ratio = maxCount == 0 ? 0.0 : (count / maxCount).clamp(0.08, 1.0);
+    final barColor = isToday
+        ? (context.appColors.blue)
+        : (isDark
+              ? context.appColors.elevatedSurface
+              : const Color(0xFFE5E5EA));
+
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text('$value', style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: 8),
-        Container(
-          height: 84,
-          alignment: Alignment.bottomCenter,
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
+        Text(
+          '$count',
+          style: AppleTypography.caption2.copyWith(
+            fontWeight: FontWeight.w600,
+            fontFeatures: AppleTypography.tabular,
+            color: context.appColors.secondaryText,
           ),
-          child: value == 0
-              ? null
-              : FractionallySizedBox(
-                  heightFactor: heightFactor.clamp(0.08, 1.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: cs.primary,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: 28,
+          height: maxBarHeight * ratio,
+          decoration: BoxDecoration(
+            color: barColor,
+            borderRadius: BorderRadius.circular(6),
+          ),
         ),
         const SizedBox(height: 6),
         Text(
-          label,
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          dayLabel,
+          style: AppleTypography.caption2.copyWith(
+            fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+            color: isToday
+                ? (context.appColors.blue)
+                : (context.appColors.secondaryText),
+          ),
         ),
       ],
     );
   }
-}
-
-String _dayLabel(DateTime value) {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final date = DateTime(value.year, value.month, value.day);
-  if (date == today) {
-    return 'Today';
-  }
-  if (date == today.subtract(const Duration(days: 1))) {
-    return 'Yesterday';
-  }
-  return '${value.month}/${value.day}';
 }

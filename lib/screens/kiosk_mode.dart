@@ -1,11 +1,10 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../app_theme.dart';
 import '../providers/hive_provider.dart';
 import '../widgets/app_chrome.dart';
-import '../widgets/biometric_indicators.dart';
 import '../widgets/camera_scanner.dart';
 import '../widgets/responsive_utils.dart';
 import 'unsupported_screen.dart';
@@ -136,43 +135,55 @@ class _KioskHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TelemetryBadge(
-          label: 'AUTONOMOUS KIOSK ENGINE',
-          isLive: true,
-          statusColor: colors.success,
-        ),
-        const SizedBox(height: 12),
         Text(
-          'Biometric Verification Kiosk',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.6,
+          'KIOSK MODE',
+          style: AppleTypography.caption1.copyWith(
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.8,
+            color: context.appColors.success,
           ),
         ),
         const SizedBox(height: 6),
         Text(
-          'Align student in optical frame. Real-time inference authenticates identity and logs timestamp locally.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: colors.secondaryText,
+          'Biometric Verification',
+          style: AppleTypography.title1.copyWith(
+            color: context.appColors.primaryText,
           ),
         ),
-        const SizedBox(height: 14),
-        Wrap(
-          spacing: 10,
-          runSpacing: 8,
+        const SizedBox(height: 4),
+        Text(
+          'Position face within camera viewfinder. Recognition logs timestamp automatically.',
+          style: AppleTypography.subhead.copyWith(
+            color: context.appColors.secondaryText,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
           children: [
-            AppPillTag(
-              label: '$studentCount students enrolled',
-              icon: Icons.groups_2_outlined,
+            Text(
+              '$studentCount enrolled',
+              style: AppleTypography.footnote.copyWith(
+                color: context.appColors.secondaryText,
+                fontFeatures: AppleTypography.tabular,
+              ),
             ),
-            AppPillTag(
-              label: '$attendanceCount check-ins logged',
-              icon: Icons.event_note_outlined,
+            const SizedBox(width: 8),
+            Text(
+              '·',
+              style: TextStyle(
+                color: context.appColors.secondaryText,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '$attendanceCount check-ins',
+              style: AppleTypography.footnote.copyWith(
+                color: context.appColors.secondaryText,
+                fontFeatures: AppleTypography.tabular,
+              ),
             ),
           ],
         ),
@@ -192,81 +203,53 @@ class _CompactKioskHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-
     return AppPanel(
-      padding: const EdgeInsets.all(14),
-      showReticles: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      radius: 12,
+      child: Row(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TelemetryBadge(
-                      label: 'LIVE RECOGNITION HUD',
-                      isLive: true,
-                      statusColor: colors.success,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Kiosk Scanner',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                  ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'KIOSK ACTIVE',
+                  style: AppleTypography.caption2.copyWith(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    color: context.appColors.success,
+                  ),
                 ),
-              ),
-              IconButton.filled(
-                onPressed: () => context.go('/admin'),
-                style: IconButton.styleFrom(
-                  backgroundColor:
-                      Theme.of(context).colorScheme.surfaceContainerHighest,
-                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+                const SizedBox(height: 2),
+                Text(
+                  'Face Scanner',
+                  style: AppleTypography.headline.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: context.appColors.primaryText,
+                  ),
                 ),
-                icon: const Icon(Icons.dashboard_customize_outlined),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filled(
-                onPressed: () => context.go('/settings'),
-                style: IconButton.styleFrom(
-                  backgroundColor:
-                      Theme.of(context).colorScheme.surfaceContainerHighest,
-                  foregroundColor: Theme.of(context).colorScheme.onSurface,
-                ),
-                icon: const Icon(Icons.tune_outlined),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
           Text(
-            'Center the face and hold still for live attendance.',
-            style: Theme.of(context).textTheme.bodyMedium,
+            '$attendanceCount logged',
+            style: AppleTypography.footnote.copyWith(
+              color: context.appColors.secondaryText,
+              fontFeatures: AppleTypography.tabular,
+            ),
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              AppPillTag(
-                label: '$studentCount ready',
-                icon: Icons.groups_2_outlined,
-                backgroundColor: context.appColors.accentSoft,
-                foregroundColor: context.appColors.accentDark,
-              ),
-              AppPillTag(
-                label: '$attendanceCount logs',
-                icon: Icons.event_note_outlined,
-                backgroundColor: context.appColors.blueSoft,
-                foregroundColor: context.appColors.blue,
-              ),
-            ],
+          const SizedBox(width: 8),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: () => context.go('/admin'),
+            icon: const Icon(Icons.dashboard_customize_outlined, size: 20),
+            tooltip: 'Admin',
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: () => context.go('/settings'),
+            icon: const Icon(Icons.tune_outlined, size: 20),
+            tooltip: 'Settings',
           ),
         ],
       ),

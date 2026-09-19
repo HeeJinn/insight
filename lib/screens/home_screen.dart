@@ -1,17 +1,17 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_ce/hive.dart';
 import '../app_theme.dart';
+import '../core/widgets/core_widgets.dart';
 import '../models/attendance.dart';
 import '../models/session_entry.dart';
 import '../models/student.dart';
 import '../providers/hive_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../widgets/app_chrome.dart';
-import '../widgets/biometric_indicators.dart';
 import '../widgets/responsive_utils.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -29,10 +29,8 @@ class HomeScreen extends ConsumerWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
-            final compact = AppBreakpoints.isCompact(width);
             final contentWidth = AppBreakpoints.contentWidth(width);
             final padding = AppBreakpoints.pagePadding(width);
-            final bottomSafeGap = AppBreakpoints.navAwareBottomInset(context);
 
             return SafeArea(
               child: Center(
@@ -41,23 +39,13 @@ class HomeScreen extends ConsumerWidget {
                   child: ListView(
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: padding.copyWith(bottom: bottomSafeGap + 12),
+                    padding: padding.copyWith(
+                      bottom: AppBreakpoints.navAwareBottomInset(context),
+                    ),
                     children: [
-                      _Header(compact: compact),
-                      const SizedBox(height: 16),
-                      _KioskHeroCard(
-                        studentsBox: studentsAsync.maybeWhen(
-                          data: (box) => box,
-                          orElse: () => null,
-                        ),
-                        attendanceBox: attendanceAsync.maybeWhen(
-                          data: (box) => box,
-                          orElse: () => null,
-                        ),
-                        sessions: sessions,
-                      ),
-                      const SizedBox(height: 16),
-                      _OverviewPanel(
+                      const _AppleHeader(),
+                      const SizedBox(height: 20),
+                      _TodayAttendanceSection(
                         studentsBox: studentsAsync.maybeWhen(
                           data: (box) => box,
                           orElse: () => null,
@@ -67,99 +55,9 @@ class HomeScreen extends ConsumerWidget {
                           orElse: () => null,
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      _TodaySessionsStrip(sessions: sessions),
-                      if (kIsWeb) ...[
-                        const SizedBox(height: 14),
-                        AppPanel(
-                          color: context.appColors.warningSoft,
-                          radius: 14,
-                          padding: const EdgeInsets.all(14),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline_rounded,
-                                size: 18,
-                                color: context.appColors.warning,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  'Web preview mode. Camera inference and kiosk recognition run on Android, iOS, and Desktop.',
-                                  style: TextStyle(
-                                    color: context.appColors.primaryText,
-                                    fontSize: 12,
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 18),
-                      Row(
-                        children: [
-                          const TelemetryBadge(label: 'NAVIGATION CLUSTER'),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Divider(
-                              color: Theme.of(context).dividerColor,
-                              thickness: 0.8,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _QuickActionsGrid(
-                        compact: compact,
-                        actions: [
-                          _QuickActionData(
-                            label: 'Kiosk Scanner',
-                            subtitle: 'Facial recognition HUD',
-                            icon: Icons.center_focus_strong_rounded,
-                            color: context.appColors.accent,
-                            onTap: kIsWeb ? null : () => context.push('/kiosk'),
-                          ),
-                          _QuickActionData(
-                            label: 'Attendance Audit',
-                            subtitle: 'Detailed time-stamped logs',
-                            icon: Icons.history_edu_rounded,
-                            color: context.appColors.blue,
-                            onTap: () => context.push('/insights/logs'),
-                          ),
-                          _QuickActionData(
-                            label: 'Student Directory',
-                            subtitle: 'Profiles & 5-sample biometric',
-                            icon: Icons.badge_outlined,
-                            color: context.appColors.success,
-                            onTap: () => context.go('/students'),
-                          ),
-                          _QuickActionData(
-                            label: 'Session Windows',
-                            subtitle: 'Scheduled class timelines',
-                            icon: Icons.timer_outlined,
-                            color: context.appColors.orange,
-                            onTap: () => context.go('/sessions'),
-                          ),
-                          _QuickActionData(
-                            label: 'Telemetry Reports',
-                            subtitle: 'Velocity & distribution analytics',
-                            icon: Icons.query_stats_rounded,
-                            color: context.appColors.accent,
-                            onTap: () => context.go('/insights'),
-                          ),
-                          _QuickActionData(
-                            label: 'Admin Terminal',
-                            subtitle: 'Enrollment & model calibration',
-                            icon: Icons.tune_rounded,
-                            color: Theme.of(context).colorScheme.primary,
-                            onTap: () => context.go('/admin'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      const _SystemStatusCard(),
+                      _SessionsSection(sessions: sessions),
+                      const _NavigationSection(),
+                      const _SystemStatusSection(),
                     ],
                   ),
                 ),
@@ -172,508 +70,237 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _Header extends StatelessWidget {
-  final bool compact;
-
-  const _Header({required this.compact});
+class _AppleHeader extends StatelessWidget {
+  const _AppleHeader();
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     final now = DateTime.now();
-    final hourFormatted = now.hour.toString().padLeft(2, '0');
-    final minuteFormatted = now.minute.toString().padLeft(2, '0');
+    final dateStr =
+        '${_weekday(now.weekday)}, ${_month(now.month)} ${now.day}'.toUpperCase();
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  TelemetryBadge(
-                    label: 'INSIGHT // STATION ONLINE',
-                    isLive: true,
-                    statusColor: colors.success,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$hourFormatted:$minuteFormatted',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: colors.mutedText,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Attendance Station',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.6,
-                    ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'On-device neural inference & autonomous kiosk telemetry',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.secondaryText,
-                    ),
-              ),
-            ],
-          ),
-        ),
-        InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () {
-            HapticFeedback.lightImpact();
-            context.push('/settings');
-          },
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Theme.of(context).dividerColor,
-                width: 0.9,
-              ),
-            ),
-            child: const Icon(Icons.settings_outlined, size: 20),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _KioskHeroCard extends StatelessWidget {
-  final Box<Student>? studentsBox;
-  final Box<Attendance>? attendanceBox;
-  final List<SessionEntry> sessions;
-
-  const _KioskHeroCard({
-    required this.studentsBox,
-    required this.attendanceBox,
-    required this.sessions,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (studentsBox == null || attendanceBox == null) {
-      return const AppPanel(
-        radius: 18,
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.all(24.0),
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-    }
-
-    final colors = context.appColors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return StreamBuilder(
-      stream: studentsBox!.watch(),
-      builder: (context, _) => StreamBuilder(
-        stream: attendanceBox!.watch(),
-        builder: (context, _) {
-          final studentsCount = studentsBox!.length;
-          final now = DateTime.now();
-          final dayStart = DateTime(now.year, now.month, now.day);
-          final detectedToday = attendanceBox!.values
-              .where((item) => item.timestamp.isAfter(dayStart))
-              .map((item) => item.studentId)
-              .toSet()
-              .length;
-
-          final coveragePercent = studentsCount == 0
-              ? 0
-              : ((detectedToday / studentsCount) * 100).round();
-
-          return AppPanel(
-            radius: 18,
-            showReticles: true,
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TelemetryBadge(
-                      label: 'OPTICAL RETICLE',
-                      statusColor: colors.accent,
-                      isLive: true,
-                    ),
-                    BiometricQualityPips(
-                      sampleCount: detectedToday,
-                      targetCount: studentsCount == 0 ? 1 : studentsCount,
-                      compact: true,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        color: colors.accent.withValues(alpha: isDark ? 0.2 : 0.1),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: colors.accent.withValues(alpha: isDark ? 0.4 : 0.2),
-                          width: 1,
-                        ),
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Icon(
-                            Icons.center_focus_weak_rounded,
-                            size: 28,
-                            color: colors.accent,
-                          ),
-                          PulseDot(color: colors.success, size: 6),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              Text(
-                                '$detectedToday',
-                                style: const TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.5,
-                                  fontFeatures: [FontFeature.tabularFigures()],
-                                ),
-                              ),
-                              Text(
-                                ' / $studentsCount',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: colors.mutedText,
-                                  fontFeatures: const [FontFeature.tabularFigures()],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: colors.success.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '$coveragePercent% VERIFIED',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.6,
-                                    color: colors.success,
-                                    fontFeatures: const [FontFeature.tabularFigures()],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Students checked-in today',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: FilledButton.icon(
-                    onPressed: kIsWeb
-                        ? null
-                        : () {
-                            HapticFeedback.mediumImpact();
-                            context.push('/kiosk');
-                          },
-                    icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
-                    label: const Text(
-                      'ENGAGE KIOSK SCANNER',
-                      style: TextStyle(
-                        letterSpacing: 0.8,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: colors.accent,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _OverviewPanel extends StatelessWidget {
-  final Box<Student>? studentsBox;
-  final Box<Attendance>? attendanceBox;
-
-  const _OverviewPanel({
-    required this.studentsBox,
-    required this.attendanceBox,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (studentsBox == null || attendanceBox == null) {
-      return const SizedBox.shrink();
-    }
-
-    final colors = context.appColors;
-
-    return StreamBuilder(
-      stream: studentsBox!.watch(),
-      builder: (context, _) => StreamBuilder(
-        stream: attendanceBox!.watch(),
-        builder: (context, _) {
-          final now = DateTime.now();
-          final dayStart = DateTime(now.year, now.month, now.day);
-          final todaysLogs = attendanceBox!.values
-              .where((item) => item.timestamp.isAfter(dayStart))
-              .toList();
-          final present = todaysLogs.map((item) => item.studentId).toSet().length;
-          final total = studentsBox!.length;
-          final absent = (total - present).clamp(0, total);
-          final late = todaysLogs.where((item) => item.timestamp.hour >= 9).length;
-
-          final presentRatio = total == 0 ? 0.0 : (present / total).clamp(0.0, 1.0);
-          final absentRatio = total == 0 ? 0.0 : (absent / total).clamp(0.0, 1.0);
-          final lateRatio = total == 0 ? 0.0 : (late / total).clamp(0.0, 1.0);
-
-          return AppPanel(
-            radius: 18,
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'ATTENDANCE VELOCITY',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: colors.mutedText,
-                      ),
-                    ),
-                    Text(
-                      'TOTAL ROSTER: $total',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
-                        color: colors.mutedText,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // Segmented velocity track
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: Container(
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
-                    ),
-                    child: Row(
-                      children: [
-                        if (presentRatio > 0)
-                          Expanded(
-                            flex: (presentRatio * 1000).round(),
-                            child: Container(color: colors.success),
-                          ),
-                        if (lateRatio > 0)
-                          Expanded(
-                            flex: (lateRatio * 1000).round(),
-                            child: Container(color: colors.orange),
-                          ),
-                        if (absentRatio > 0)
-                          Expanded(
-                            flex: (absentRatio * 1000).round(),
-                            child: Container(
-                              color: Theme.of(context).colorScheme.outlineVariant,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MetricCell(
-                        label: 'Present',
-                        value: '$present',
-                        percent: total == 0 ? '0%' : '${((present / total) * 100).round()}%',
-                        indicatorColor: colors.success,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _MetricCell(
-                        label: 'Late',
-                        value: '$late',
-                        percent: total == 0 ? '0%' : '${((late / total) * 100).round()}%',
-                        indicatorColor: colors.orange,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _MetricCell(
-                        label: 'Absent',
-                        value: '$absent',
-                        percent: total == 0 ? '0%' : '${((absent / total) * 100).round()}%',
-                        indicatorColor: colors.danger,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _MetricCell extends StatelessWidget {
-  final String label;
-  final String value;
-  final String percent;
-  final Color indicatorColor;
-
-  const _MetricCell({
-    required this.label,
-    required this.value,
-    required this.percent,
-    required this.indicatorColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: Theme.of(context).dividerColor.withValues(alpha: 0.6),
-          width: 0.8,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: indicatorColor,
-                  shape: BoxShape.circle,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  dateStr,
+                  style: AppleTypography.caption1.copyWith(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.8,
+                    color: context.appColors.secondaryText,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                label.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.6,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                const SizedBox(height: 4),
+                Text(
+                  'Insight',
+                  style: AppleTypography.largeTitle.copyWith(
+                    color: context.appColors.primaryText,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 6),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                ),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                percent,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: context.appColors.mutedText,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
+          IconButton(
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              context.push('/settings');
+            },
+            icon: Icon(
+              Icons.tune_rounded,
+              color: context.appColors.primaryText,
+              size: 22,
+            ),
+            tooltip: 'Settings',
           ),
         ],
       ),
     );
   }
+
+  String _weekday(int d) {
+    const days = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday'
+    ];
+    return days[(d - 1).clamp(0, 6)];
+  }
+
+  String _month(int m) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
+    ];
+    return months[(m - 1).clamp(0, 11)];
+  }
 }
 
-class _TodaySessionsStrip extends StatelessWidget {
+class _TodayAttendanceSection extends StatelessWidget {
+  final Box<Student>? studentsBox;
+  final Box<Attendance>? attendanceBox;
+
+  const _TodayAttendanceSection({
+    required this.studentsBox,
+    required this.attendanceBox,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (studentsBox == null || attendanceBox == null) {
+      return const AppleInsetGroupedSection(
+        header: 'Today\'s Attendance',
+        children: [
+          Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return StreamBuilder(
+      stream: studentsBox!.watch(),
+      builder: (context, _) => StreamBuilder(
+        stream: attendanceBox!.watch(),
+        builder: (context, _) {
+          final totalStudents = studentsBox!.length;
+          final now = DateTime.now();
+          final dayStart = DateTime(now.year, now.month, now.day);
+          final todaysLogs = attendanceBox!.values
+              .where((item) => item.timestamp.isAfter(dayStart))
+              .toList();
+          final presentCount =
+              todaysLogs.map((item) => item.studentId).toSet().length;
+          final coveragePercent = totalStudents == 0
+              ? 0
+              : ((presentCount / totalStudents) * 100).round();
+
+          return AppleInsetGroupedSection(
+            header: 'Today\'s Attendance',
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          '$presentCount',
+                          style: AppleTypography.tabularNumber(
+                            fontSize: 38,
+                            fontWeight: FontWeight.w700,
+                            color: context.appColors.primaryText,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '/ $totalStudents checked in',
+                          style: AppleTypography.headline.copyWith(
+                            fontWeight: FontWeight.w500,
+                            color: context.appColors.secondaryText,
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: (context.appColors.success)
+                                .withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '$coveragePercent%',
+                            style: AppleTypography.footnote.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: context.appColors.success,
+                              fontFeatures: AppleTypography.tabular,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        minHeight: 5,
+                        value: totalStudents == 0
+                            ? 0.0
+                            : (presentCount / totalStudents).clamp(0.0, 1.0),
+                        backgroundColor: context.appColors.border,
+                        valueColor: AlwaysStoppedAnimation(context.appColors.blue),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    AppleTactileButton(
+                      onPressed: kIsWeb
+                          ? null
+                          : () {
+                              HapticFeedback.lightImpact();
+                              context.push('/kiosk');
+                            },
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.camera_alt_rounded, size: 18),
+                          SizedBox(width: 8),
+                          Text('Start Kiosk Mode'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SessionsSection extends StatelessWidget {
   final List<SessionEntry> sessions;
 
-  const _TodaySessionsStrip({required this.sessions});
+  const _SessionsSection({required this.sessions});
 
   @override
   Widget build(BuildContext context) {
     final now = TimeOfDay.now();
     final nowMinutes = now.hour * 60 + now.minute;
+
     final liveSession = sessions.cast<SessionEntry?>().firstWhere(
           (s) =>
               s != null &&
@@ -682,252 +309,141 @@ class _TodaySessionsStrip extends StatelessWidget {
           orElse: () => null,
         );
 
-    final colors = context.appColors;
+    final upcomingSessions = sessions
+        .where((s) => s.startMinuteOfDay > nowMinutes)
+        .take(2)
+        .toList();
 
-    if (liveSession != null) {
-      return AppPanel(
-        radius: 16,
-        showReticles: true,
-        borderColor: colors.success.withValues(alpha: 0.35),
-        color: colors.success.withValues(alpha: 0.05),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            PulseDot(color: colors.success, size: 8),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ACTIVE CLASS WINDOW',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                      color: colors.success,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    liveSession.title,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+    return AppleInsetGroupedSection(
+      header: 'Timetable & Schedule',
+      children: [
+        if (liveSession != null)
+          AppleListRow(
+            leading: AppIconBadge(icon: Icons.sensors_rounded, tint: context.appColors.success),
+            title: liveSession.title,
+            subtitle: '${liveSession.room} · Active Window',
+            trailing: Text(
+              liveSession.timeLabel,
+              style: AppleTypography.footnote.copyWith(
+                fontWeight: FontWeight.w600,
+                fontFeatures: AppleTypography.tabular,
               ),
             ),
-            FilledButton.tonal(
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                context.push('/kiosk');
-              },
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(0, 34),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('Launch Kiosk'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return AppPanel(
-      radius: 14,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: Row(
-        children: [
-          Icon(
-            Icons.schedule_rounded,
-            size: 16,
-            color: colors.mutedText,
+            showChevron: true,
+            onTap: () => context.push('/kiosk'),
+          )
+        else
+          AppleListRow(
+            leading: AppIconBadge(icon: Icons.calendar_today_rounded, tint: context.appColors.secondaryText),
+            title: sessions.isEmpty ? 'No Scheduled Sessions' : 'Class Schedule',
+            subtitle: sessions.isEmpty
+                ? 'Tap to configure class attendance windows'
+                : '${sessions.length} total sessions today',
+            showChevron: true,
+            onTap: () => context.go('/sessions'),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              sessions.isEmpty
-                  ? 'No sessions active. Tap to schedule class windows.'
-                  : '${sessions.length} scheduled session${sessions.length == 1 ? '' : 's'} registered today',
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+        for (final session in upcomingSessions)
+          AppleListRow(
+            leading: AppIconBadge(icon: Icons.schedule_rounded, tint: context.appColors.blue),
+            title: session.title,
+            subtitle: session.room,
+            trailing: Text(
+              session.timeLabel,
+              style: AppleTypography.footnote.copyWith(
+                color: context.appColors.secondaryText,
+                fontFeatures: AppleTypography.tabular,
               ),
             ),
+            showChevron: true,
+            onTap: () => context.go('/sessions'),
           ),
-          TextButton(
-            onPressed: () => context.go('/sessions'),
-            style: TextButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-            ),
-            child: const Text('Manage', style: TextStyle(fontSize: 12)),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
 
-class _QuickActionsGrid extends StatelessWidget {
-  final bool compact;
-  final List<_QuickActionData> actions;
-
-  const _QuickActionsGrid({required this.compact, required this.actions});
+class _NavigationSection extends StatelessWidget {
+  const _NavigationSection();
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      itemCount: actions.length,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: compact ? 2 : 3,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: compact ? 1.65 : 2.1,
-      ),
-      itemBuilder: (context, index) {
-        final action = actions[index];
-        return _ActionTile(action: action);
-      },
+    return AppleInsetGroupedSection(
+      header: 'Workspace',
+      children: [
+        AppleListRow(
+          leading: AppIconBadge(icon: Icons.people_alt_rounded, tint: context.appColors.blue),
+          title: 'Student Directory',
+          subtitle: 'Enrolled students and facial profiles',
+          showChevron: true,
+          onTap: () => context.go('/students'),
+        ),
+        AppleListRow(
+          leading: AppIconBadge(icon: Icons.history_rounded, tint: context.appColors.warning),
+          title: 'Attendance Logs',
+          subtitle: 'Chronological time-stamped check-ins',
+          showChevron: true,
+          onTap: () => context.push('/insights/logs'),
+        ),
+        AppleListRow(
+          leading: AppIconBadge(icon: Icons.analytics_outlined, tint: context.appColors.success),
+          title: 'Insights & Velocity',
+          subtitle: 'Attendance rates and metrics',
+          showChevron: true,
+          onTap: () => context.go('/insights'),
+        ),
+        AppleListRow(
+          leading: AppIconBadge(icon: Icons.admin_panel_settings_rounded, tint: context.appColors.secondaryText),
+          title: 'Admin Terminal',
+          subtitle: 'Registration and camera calibration',
+          showChevron: true,
+          onTap: () => context.go('/admin'),
+        ),
+      ],
     );
   }
 }
 
-class _ActionTile extends StatelessWidget {
-  final _QuickActionData action;
-
-  const _ActionTile({required this.action});
+class _SystemStatusSection extends StatelessWidget {
+  const _SystemStatusSection();
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Theme.of(context).dividerColor.withValues(alpha: 0.7),
-          width: 0.8,
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          if (action.onTap != null) {
-            HapticFeedback.selectionClick();
-            action.onTap!();
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: action.color.withValues(alpha: isDark ? 0.2 : 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(action.icon, size: 17, color: action.color),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                action.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                action.subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickActionData {
-  final String label;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-  final VoidCallback? onTap;
-
-  const _QuickActionData({
-    required this.label,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-}
-
-class _SystemStatusCard extends StatelessWidget {
-  const _SystemStatusCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-
-    return AppPanel(
-      radius: 14,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Row(
-        children: [
-          PulseDot(color: colors.success, size: 7),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'ENGINE: TFLITE FACENET • STORAGE: HIVE SECURE',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.7,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Local inference engine operational. Zero cloud leakage.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+    return AppleInsetGroupedSection(
+      header: 'System Telemetry',
+      footer: 'Insight runs completely offline. No biometric vectors or facial images leave this device.',
+      children: [
+        AppleListRow(
+          leading: AppIconBadge(icon: Icons.camera_alt_outlined, tint: context.appColors.success),
+          title: 'Camera Inference',
+          trailing: Text(
+            kIsWeb ? 'Web Mode' : 'Online',
+            style: AppleTypography.footnote.copyWith(
+              fontWeight: FontWeight.w600,
+              color: context.appColors.success,
             ),
           ),
-          TelemetryBadge(
-            label: 'NOMINAL',
-            statusColor: colors.success,
+        ),
+        AppleListRow(
+          leading: AppIconBadge(icon: Icons.shield_outlined, tint: context.appColors.blue),
+          title: 'Storage & Encryption',
+          trailing: Text(
+            'Hive CE Local',
+            style: AppleTypography.footnote.copyWith(
+              color: context.appColors.secondaryText,
+            ),
           ),
-        ],
-      ),
+        ),
+        AppleListRow(
+          leading: AppIconBadge(icon: Icons.memory_rounded, tint: context.appColors.warning),
+          title: 'Recognition Model',
+          trailing: Text(
+            'MobileFaceNet',
+            style: AppleTypography.footnote.copyWith(
+              color: context.appColors.secondaryText,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

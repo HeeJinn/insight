@@ -14,6 +14,11 @@ class DockDestination {
   });
 }
 
+/// A compact floating dock, sized to its content rather than stretched
+/// edge-to-edge: inactive destinations are icon-only, and the active one
+/// expands into a colored capsule revealing its label. This keeps items
+/// close together at any window width instead of spreading out into a
+/// sparse, evenly-stretched bar.
 class AppDock extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelect;
@@ -29,51 +34,51 @@ class AppDock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final dockBg = isDark
-        ? const Color(0xE6121620)
-        : const Color(0xF2FFFFFF);
-    final borderColor = isDark
-        ? const Color(0x332E394E)
-        : const Color(0x33000000);
+    final dockBg = isDark ? const Color(0xE61C1C1E) : const Color(0xF2FFFFFF);
+    final borderColor = context.appColors.border;
 
     return SafeArea(
       top: false,
       left: false,
       right: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-        child: Container(
-          height: 64,
-          decoration: BoxDecoration(
-            color: dockBg,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: borderColor, width: 0.9),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.08),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-          child: Row(
-            children: List.generate(destinations.length, (index) {
-              final isSelected = index == selectedIndex;
-              final destination = destinations[index];
-              return Expanded(
-                child: _DockItem(
-                  destination: destination,
-                  isSelected: isSelected,
-                  onTap: () {
-                    if (!isSelected) {
-                      HapticFeedback.selectionClick();
-                    }
-                    onSelect(index);
-                  },
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Center(
+          heightFactor: 1.0,
+          child: Container(
+            decoration: BoxDecoration(
+              color: dockBg,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: borderColor, width: 0.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.1),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
                 ),
-              );
-            }),
+              ],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(destinations.length, (index) {
+                final isSelected = index == selectedIndex;
+                final destination = destinations[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: _DockItem(
+                    destination: destination,
+                    isSelected: isSelected,
+                    onTap: () {
+                      if (!isSelected) {
+                        HapticFeedback.lightImpact();
+                        onSelect(index);
+                      }
+                    },
+                  ),
+                );
+              }),
+            ),
           ),
         ),
       ),
@@ -81,7 +86,7 @@ class AppDock extends StatelessWidget {
   }
 }
 
-class _DockItem extends StatelessWidget {
+class _DockItem extends StatefulWidget {
   final DockDestination destination;
   final bool isSelected;
   final VoidCallback onTap;
@@ -93,56 +98,103 @@ class _DockItem extends StatelessWidget {
   });
 
   @override
+  State<_DockItem> createState() => _DockItemState();
+}
+
+class _DockItemState extends State<_DockItem>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pressController;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scale = Tween<double>(begin: 1.0, end: 0.92).animate(
+      CurvedAnimation(parent: _pressController, curve: Curves.easeOutCubic),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final activeBg = colors.accent.withValues(alpha: isDark ? 0.18 : 0.12);
+    final isSelected = widget.isSelected;
     final activeColor = colors.accent;
     final inactiveColor = colors.mutedText;
 
     return Semantics(
       selected: isSelected,
       button: true,
-      label: destination.label,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        splashColor: activeColor.withValues(alpha: 0.1),
-        highlightColor: Colors.transparent,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          decoration: BoxDecoration(
-            color: isSelected ? activeBg : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-            border: isSelected
-                ? Border.all(
-                    color: activeColor.withValues(alpha: isDark ? 0.28 : 0.2),
-                    width: 0.8,
-                  )
-                : null,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                isSelected ? destination.activeIcon : destination.icon,
-                size: 20,
-                color: isSelected ? activeColor : inactiveColor,
-              ),
-              const SizedBox(height: 3),
-              Text(
-                destination.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  letterSpacing: isSelected ? 0.2 : 0.0,
-                  color: isSelected ? activeColor : inactiveColor,
+      label: widget.destination.label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _pressController.forward(),
+        onTapUp: (_) => _pressController.reverse(),
+        onTapCancel: () => _pressController.reverse(),
+        onTap: widget.onTap,
+        child: ScaleTransition(
+          scale: _scale,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeOutCubic,
+            height: 46,
+            padding: EdgeInsets.symmetric(
+              horizontal: isSelected ? 16 : 13,
+            ),
+            decoration: BoxDecoration(
+              color: isSelected ? activeColor : Colors.transparent,
+              borderRadius: BorderRadius.circular(23),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  transitionBuilder: (child, animation) => ScaleTransition(
+                    scale: animation,
+                    child: FadeTransition(opacity: animation, child: child),
+                  ),
+                  child: Icon(
+                    isSelected
+                        ? widget.destination.activeIcon
+                        : widget.destination.icon,
+                    key: ValueKey(isSelected),
+                    size: 21,
+                    color: isSelected ? Colors.white : inactiveColor,
+                  ),
                 ),
-              ),
-            ],
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.centerLeft,
+                  child: isSelected
+                      ? Padding(
+                          padding: const EdgeInsets.only(left: 7),
+                          child: Text(
+                            widget.destination.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.1,
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                      : const SizedBox(width: 0, height: 0),
+                ),
+              ],
+            ),
           ),
         ),
       ),
