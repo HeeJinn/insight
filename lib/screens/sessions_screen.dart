@@ -410,6 +410,10 @@ class SessionsScreen extends ConsumerWidget {
         },
       ),
     );
+
+    titleCtrl.dispose();
+    roomCtrl.dispose();
+    expectedCtrl.dispose();
   }
 }
 

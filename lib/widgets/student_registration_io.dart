@@ -711,6 +711,7 @@ class _GuidedFaceCaptureDialogState extends State<_GuidedFaceCaptureDialog> {
       _errorMessage = null;
     });
 
+    CameraController? controller;
     try {
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
@@ -722,7 +723,7 @@ class _GuidedFaceCaptureDialogState extends State<_GuidedFaceCaptureDialog> {
         orElse: () => cameras.first,
       );
 
-      final controller = CameraController(
+      controller = CameraController(
         preferred,
         ResolutionPreset.medium,
         enableAudio: false,
@@ -741,6 +742,16 @@ class _GuidedFaceCaptureDialogState extends State<_GuidedFaceCaptureDialog> {
 
       _startCountdown();
     } catch (e) {
+      // If the controller was constructed but initialize() (or anything
+      // after it) failed, it's not wired to _controller yet, so nothing
+      // else will ever dispose it — do that here before reporting the
+      // error, otherwise a retry (this dialog has a retry button) leaks
+      // another native camera session each time.
+      try {
+        await controller?.dispose();
+      } catch (disposeError) {
+        debugPrint('Error disposing failed camera controller: $disposeError');
+      }
       if (!mounted) {
         return;
       }
@@ -972,10 +983,7 @@ class _GuidedFaceCaptureDialogState extends State<_GuidedFaceCaptureDialog> {
                                     : Stack(
                                         fit: StackFit.expand,
                                         children: [
-                                          AspectRatio(
-                                            aspectRatio: preview.value.aspectRatio,
-                                            child: CameraPreview(preview),
-                                          ),
+                                          CoverCameraPreview(controller: preview),
                                           if (!_isCapturing)
                                             Positioned(
                                               bottom: 16,

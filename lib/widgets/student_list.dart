@@ -387,7 +387,7 @@ class _StudentListState extends State<StudentList> {
           ),
         ),
       ],
-    );
+    ).whenComplete(nameController.dispose);
   }
 }
 

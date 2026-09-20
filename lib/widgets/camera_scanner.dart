@@ -9,6 +9,7 @@ import 'package:image/image.dart' as img;
 import 'package:lottie/lottie.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../app_theme.dart';
+import '../core/widgets/core_widgets.dart';
 import '../models/attendance.dart';
 import '../models/session_entry.dart';
 import '../models/student.dart';
@@ -16,8 +17,10 @@ import '../providers/settings_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../services/captured_file_cleanup.dart';
 import '../services/face_processor.dart';
+import '../services/live_face_tracker.dart';
 import 'app_chrome.dart';
 import 'biometric_indicators.dart';
+import 'face_overlay_painter.dart';
 import 'responsive_utils.dart';
 
 class CameraScanner extends ConsumerStatefulWidget {
@@ -38,6 +41,16 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     with WidgetsBindingObserver {
   CameraController? _controller;
   FaceProcessor? _faceProcessor;
+  LiveFaceTracker? _liveFaceTracker;
+  // A dedicated notifier (rather than a plain field + setState) so the
+  // ~8/sec live-tracking updates only repaint the camera overlay, instead
+  // of rebuilding this whole widget's badges/panels/Lottie setup on every
+  // tick.
+  final ValueNotifier<LiveFaceTrackingFrame?> _liveFaceFrameNotifier =
+      ValueNotifier(null);
+  bool _isTrackingFace = false;
+  DateTime _lastTrackedAt = DateTime.fromMillisecondsSinceEpoch(0);
+  static const Duration _liveTrackingInterval = Duration(milliseconds: 120);
   String? _recognizedStudent;
   String _statusLabel = 'Waiting for camera access';
   bool _isProcessing = false;
@@ -75,6 +88,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
         }
       }
       _faceProcessor = FaceProcessor();
+      _liveFaceTracker = LiveFaceTracker();
       if (_requiresRuntimeCameraPermission) {
         unawaited(_requestPermissions());
       } else {
@@ -183,6 +197,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       if (!mounted) {
         return;
       }
+      unawaited(_updateLiveFaceTracking(image, controller));
       if (_isProcessing) {
         return;
       }
@@ -256,6 +271,40 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     });
   }
 
+  /// Updates the live face-tracking overlay from the same stream frames
+  /// used for recognition, throttled and gated independently so a slow
+  /// mesh/contour detection pass never blocks (or is blocked by) the
+  /// recognition pipeline.
+  Future<void> _updateLiveFaceTracking(
+    CameraImage image,
+    CameraController controller,
+  ) async {
+    final tracker = _liveFaceTracker;
+    if (tracker == null || !tracker.isSupported || _isTrackingFace) {
+      return;
+    }
+    final now = DateTime.now();
+    if (now.difference(_lastTrackedAt) < _liveTrackingInterval) {
+      return;
+    }
+    _lastTrackedAt = now;
+
+    _isTrackingFace = true;
+    try {
+      final frame = await tracker.processCameraImage(
+        image,
+        camera: controller.description,
+        deviceOrientation: controller.value.deviceOrientation,
+      );
+      if (!mounted) {
+        return;
+      }
+      _liveFaceFrameNotifier.value = frame;
+    } finally {
+      _isTrackingFace = false;
+    }
+  }
+
   Future<void> _stopScanning() async {
     _snapshotTicker?.cancel();
     _snapshotTicker = null;
@@ -323,6 +372,16 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       }
 
       final bbox = await processor.detectFace(capturedImage);
+      if (mounted) {
+        _liveFaceFrameNotifier.value = LiveFaceTrackingFrame(
+          geometry: NormalizedBoxGeometry(
+            left: bbox[0],
+            top: bbox[1],
+            width: bbox[2],
+            height: bbox[3],
+          ),
+        );
+      }
       final cropped = processor.cropFace(capturedImage, bbox);
       final embedding = await processor.recognizeFace(cropped);
       final mirroredCrop = processor.flipImageHorizontally(
@@ -470,6 +529,8 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       controller.dispose();
     }
     _faceProcessor?.dispose();
+    unawaited(_liveFaceTracker?.close());
+    _liveFaceFrameNotifier.dispose();
     super.dispose();
   }
 
@@ -513,26 +574,26 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = AppBreakpoints.isCompact(constraints.maxWidth);
-        final maxFrameWidth = (constraints.maxWidth - (compact ? 72 : 120))
-            .clamp(190.0, 360.0)
-            .toDouble();
-        final maxFrameHeight = (constraints.maxHeight - (compact ? 250 : 220))
-            .clamp(250.0, 430.0)
-            .toDouble();
-
-        var frameWidth = maxFrameWidth;
-        var frameHeight = frameWidth * 1.26;
-        if (frameHeight > maxFrameHeight) {
-          frameHeight = maxFrameHeight;
-          frameWidth = frameHeight / 1.26;
-        }
 
         return Stack(
           fit: StackFit.expand,
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(30),
-              child: CameraPreview(_controller!),
+              child: ValueListenableBuilder<LiveFaceTrackingFrame?>(
+                valueListenable: _liveFaceFrameNotifier,
+                builder: (context, frame, _) {
+                  return CoverCameraPreview(
+                    controller: _controller!,
+                    foregroundPainter: FaceTrackingOverlayPainter(
+                      frame: frame,
+                      color: _recognizedStudent != null
+                          ? const Color(0xFF00E599)
+                          : Colors.white,
+                    ),
+                  );
+                },
+              ),
             ),
             DecoratedBox(
               decoration: BoxDecoration(
@@ -573,74 +634,6 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
                         isLive: true,
                         statusColor: Color(0xFFFBBF24),
                       ),
-                  ],
-                ),
-              ),
-            ),
-            Center(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: frameWidth,
-                height: frameHeight,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(32),
-                  border: Border.all(
-                    color: _recognizedStudent != null
-                        ? const Color(0xFF00E599)
-                        : Colors.white.withValues(alpha: 0.9),
-                    width: _recognizedStudent != null ? 2.8 : 2.0,
-                  ),
-                  boxShadow: [
-                    if (_recognizedStudent != null)
-                      BoxShadow(
-                        color: const Color(0xFF00E599).withValues(alpha: 0.4),
-                        blurRadius: 24,
-                        spreadRadius: 2,
-                      ),
-                  ],
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: 12,
-                      left: 12,
-                      child: _CornerAccent(
-                        alignment: Alignment.topLeft,
-                        color: _recognizedStudent != null
-                            ? const Color(0xFF00E599)
-                            : Colors.white,
-                      ),
-                    ),
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: _CornerAccent(
-                        alignment: Alignment.topRight,
-                        color: _recognizedStudent != null
-                            ? const Color(0xFF00E599)
-                            : Colors.white,
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 12,
-                      left: 12,
-                      child: _CornerAccent(
-                        alignment: Alignment.bottomLeft,
-                        color: _recognizedStudent != null
-                            ? const Color(0xFF00E599)
-                            : Colors.white,
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 12,
-                      right: 12,
-                      child: _CornerAccent(
-                        alignment: Alignment.bottomRight,
-                        color: _recognizedStudent != null
-                            ? const Color(0xFF00E599)
-                            : Colors.white,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -827,52 +820,3 @@ class _ScannerStatePanel extends StatelessWidget {
   }
 }
 
-
-class _CornerAccent extends StatelessWidget {
-  final Alignment alignment;
-  final Color color;
-
-  const _CornerAccent({
-    required this.alignment,
-    this.color = const Color(0xCCFFFFFF),
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isLeft =
-        alignment == Alignment.topLeft || alignment == Alignment.bottomLeft;
-    final isTop =
-        alignment == Alignment.topLeft || alignment == Alignment.topRight;
-
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        border: Border(
-          top: isTop
-              ? BorderSide(color: color, width: 3.5)
-              : BorderSide.none,
-          left: isLeft
-              ? BorderSide(color: color, width: 3.5)
-              : BorderSide.none,
-          right: !isLeft
-              ? BorderSide(color: color, width: 3.5)
-              : BorderSide.none,
-          bottom: !isTop
-              ? BorderSide(color: color, width: 3.5)
-              : BorderSide.none,
-        ),
-        borderRadius: BorderRadius.only(
-          topLeft: isTop && isLeft ? const Radius.circular(12) : Radius.zero,
-          topRight: isTop && !isLeft ? const Radius.circular(12) : Radius.zero,
-          bottomLeft: !isTop && isLeft
-              ? const Radius.circular(12)
-              : Radius.zero,
-          bottomRight: !isTop && !isLeft
-              ? const Radius.circular(12)
-              : Radius.zero,
-        ),
-      ),
-    );
-  }
-}

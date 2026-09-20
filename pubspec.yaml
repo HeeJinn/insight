@@ -19,7 +19,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.11.4
+  sdk: ^3.12.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -48,6 +48,11 @@ dependencies:
   # ML inference
   tflite_flutter: ^0.12.1
 
+  # Live face tracking overlay (Android: face mesh, iOS: face contours).
+  # Mobile-only; no Windows/web/desktop implementation exists upstream.
+  google_mlkit_face_mesh_detection: ^0.6.1
+  google_mlkit_face_detection: ^0.15.1
+
   # Image processing
   image: ^4.2.0
 
@@ -63,6 +68,11 @@ dependencies:
   shared_preferences: ^2.5.5
   lottie: ^3.3.2
   share_plus: ^13.1.0
+  flutter_animate: ^4.5.2
+  shimmer: ^4.0.0
+  flutter_svg: ^2.3.0
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.12.0
 
 dev_dependencies:
   flutter_test:
@@ -78,6 +88,9 @@ dev_dependencies:
   # Hive code generation
   hive_ce_generator: ^1.6.0
   build_runner: ^2.4.11
+  freezed: ^4.0.2
+  json_serializable: ^6.14.1
+  mocktail: ^1.0.5
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -776,6 +776,7 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
         ],
       ),
     );
+    controller.dispose();
     if (name == null || name.isEmpty) return;
     final preset = _SavedPreset(
       name: name,
@@ -882,6 +883,7 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
         ],
       ),
     );
+    controller.dispose();
     if (newName == null || newName.isEmpty || newName == oldName) return;
     setState(() {
       _savedPresets = _savedPresets.map((p) {
