@@ -688,6 +688,7 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
         'student_name',
         'session_title',
         'room',
+        'latency_ms',
       ];
       final rows = logs.map((log) {
         final values = [
@@ -696,6 +697,7 @@ class _InsightLogsScreenState extends ConsumerState<InsightLogsScreen> {
           idToName[log.studentId] ?? 'Unknown student',
           (log.sessionTitle ?? '').trim(),
           (log.room ?? '').trim(),
+          log.latencyMs?.toString() ?? '',
         ];
         return values.map(_csvCell).join(',');
       }).toList();

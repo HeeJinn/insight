@@ -13,6 +13,7 @@ import '../app_theme.dart';
 import '../core/widgets/core_widgets.dart';
 import '../models/student.dart';
 import '../providers/hive_provider.dart';
+import '../services/camera_rotation.dart';
 import '../services/captured_file_cleanup.dart';
 import '../services/face_processor.dart';
 import 'app_chrome.dart';
@@ -135,7 +136,7 @@ class _StudentRegistrationState extends ConsumerState<StudentRegistration> {
     setState(() {
       _isProcessing = true;
       _feedbackIsError = false;
-      _feedbackMessage = 'Generating 512-d facial embeddings and saving profile...';
+      _feedbackMessage = 'Generating 192-d facial embeddings and saving profile...';
     });
 
     final faceProcessor = FaceProcessor();
@@ -617,36 +618,37 @@ class _FaceAngleSlotsGrid extends StatelessWidget {
   }
 }
 
-enum _CaptureStep { front, turnA, turnB, tiltA, tiltB }
-
-extension on _CaptureStep {
+extension on CapturePose {
   String get instruction {
     switch (this) {
-      case _CaptureStep.front:
-        return 'Look straight at the camera and hold still.';
-      case _CaptureStep.turnA:
-        return 'Slowly turn your head to one side.';
-      case _CaptureStep.turnB:
+      case CapturePose.front:
+        return 'Look straight at the camera.';
+      case CapturePose.turnA:
+        return 'Turn your head to one side.';
+      case CapturePose.turnB:
         return 'Now turn to the other side.';
-      case _CaptureStep.tiltA:
-        return 'Tilt your head up or down slightly.';
-      case _CaptureStep.tiltB:
+      case CapturePose.tiltA:
+        return 'Tilt your head up or down.';
+      case CapturePose.tiltB:
         return 'Now tilt the other way.';
     }
   }
 }
 
-/// One continuous guided capture session that automatically snaps all 5
-/// baseline photos in sequence, instead of requiring 5 separate manual
-/// "open dialog, click shutter" cycles.
+/// One continuous guided capture session that snaps all 5 baseline photos
+/// in sequence, each one automatically once the face is in the right pose.
 ///
-/// This is a timer-guided flow, not a pose-verified one: each step shows an
-/// instruction and a short countdown, then auto-captures — it doesn't check
-/// that you actually moved your head. Real pose verification would need a
-/// working face-landmark model, which isn't available on Windows without
-/// building TensorFlow Lite's C library from source (no official prebuilt
-/// exists for this platform); this flow avoids that dependency entirely so
-/// it works everywhere today.
+/// Every candidate frame goes through BlazeFace (the same detector used at
+/// registration) and [PoseGuide] checks framing and head pose. On Android
+/// and iOS the camera streams live frames and a pose must be held briefly
+/// before the photo is taken, then the photo itself is re-checked. The
+/// Windows camera plugin can't stream frames, so there the dialog takes
+/// repeated still snapshots and keeps the first one in the right pose.
+///
+/// "Capture Now" always takes the photo as-is, as a fallback for anyone the
+/// pose check struggles with; if detection stops working altogether (e.g.
+/// the TensorFlow Lite library is missing), the dialog says so and falls
+/// back to manual capture only.
 class _GuidedFaceCaptureDialog extends StatefulWidget {
   const _GuidedFaceCaptureDialog();
 
@@ -656,23 +658,56 @@ class _GuidedFaceCaptureDialog extends StatefulWidget {
 }
 
 class _GuidedFaceCaptureDialogState extends State<_GuidedFaceCaptureDialog> {
-  static const _countdownStart = 3;
+  static const _initAttempts = 3;
+
+  /// How long a pose must be held on live frames before the photo is taken.
+  static const _holdDuration = Duration(milliseconds: 600);
+
+  /// Minimum gap between analysed live frames.
+  static const _frameInterval = Duration(milliseconds: 120);
+
+  /// Minimum gap between snapshots when the camera can't stream.
+  static const _snapshotInterval = Duration(milliseconds: 350);
+
+  /// Pause after each capture so the next instruction can be read.
+  static const _stepCooldown = Duration(milliseconds: 800);
+
+  /// Consecutive detection failures before pose checking is given up.
+  static const _maxDetectionErrors = 3;
 
   CameraController? _controller;
+  final FaceProcessor _faceProcessor = FaceProcessor();
+  final PoseGuide _guide = PoseGuide();
   bool _isInitializing = true;
   bool _isPermissionDenied = false;
   bool _isCapturing = false;
   bool _isFinished = false;
   String? _errorMessage;
-  Timer? _countdownTimer;
-  int _countdown = _countdownStart;
 
-  final List<_CaptureStep> _steps = _CaptureStep.values;
+  /// Live frames (Android/iOS) or repeated snapshots (Windows).
+  bool _usesStream = false;
+  bool _isAnalyzing = false;
+  bool _poseCheckUnavailable = false;
+  bool _manualCaptureRequested = false;
+  int _detectionErrors = 0;
+  int _snapshotLoopId = 0;
+  DateTime _lastFrameAt = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _pausedUntil = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime? _holdStart;
+  double _holdProgress = 0;
+  FaceObservation? _lastObservation;
+  String _hint = 'Position your face in the frame';
+
+  final List<CapturePose> _steps = CapturePose.values;
   int _stepIndex = 0;
   final List<File> _captured = [];
   bool _isComplete = false;
 
-  _CaptureStep get _currentStep => _steps[_stepIndex];
+  CapturePose get _currentStep => _steps[_stepIndex];
+
+  bool get _isActive => mounted && !_isFinished && !_isComplete;
+
+  bool get _isPaused => DateTime.now().isBefore(_pausedUntil);
 
   bool get _requiresRuntimePermission =>
       !kIsWeb &&
@@ -682,6 +717,11 @@ class _GuidedFaceCaptureDialogState extends State<_GuidedFaceCaptureDialog> {
   @override
   void initState() {
     super.initState();
+    // Load the face models while the camera starts; failures resurface
+    // (and are handled) on the first detection call.
+    _faceProcessor.loadModels().then<void>((_) {}, onError: (Object e) {
+      debugPrint('Face models failed to preload: $e');
+    });
     if (_requiresRuntimePermission) {
       unawaited(_requestPermissionThenInit());
     } else {
@@ -711,115 +751,402 @@ class _GuidedFaceCaptureDialogState extends State<_GuidedFaceCaptureDialog> {
       _errorMessage = null;
     });
 
-    CameraController? controller;
-    try {
-      final cameras = await availableCameras();
-      if (cameras.isEmpty) {
-        throw StateError('No camera was found on this device.');
+    Object? lastError;
+    // A webcam that another controller (the kiosk scanner, a previous
+    // capture dialog) has only just released can briefly refuse to start
+    // on Windows ("A device attached to the system is not functioning"),
+    // so retry a few times before surfacing the error.
+    for (var attempt = 0; attempt < _initAttempts; attempt++) {
+      if (attempt > 0) {
+        await Future.delayed(Duration(milliseconds: 700 * attempt));
+        if (!mounted) {
+          return;
+        }
       }
 
-      final preferred = cameras.firstWhere(
-        (camera) => camera.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
-      );
-
-      controller = CameraController(
-        preferred,
-        ResolutionPreset.medium,
-        enableAudio: false,
-      );
-      await controller.initialize();
-
-      if (!mounted) {
-        await controller.dispose();
-        return;
-      }
-
-      setState(() {
-        _controller = controller;
-        _isInitializing = false;
-      });
-
-      _startCountdown();
-    } catch (e) {
-      // If the controller was constructed but initialize() (or anything
-      // after it) failed, it's not wired to _controller yet, so nothing
-      // else will ever dispose it — do that here before reporting the
-      // error, otherwise a retry (this dialog has a retry button) leaks
-      // another native camera session each time.
+      CameraController? controller;
       try {
-        await controller?.dispose();
-      } catch (disposeError) {
-        debugPrint('Error disposing failed camera controller: $disposeError');
-      }
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _isInitializing = false;
-        _errorMessage = 'Camera preview could not start. Details: $e';
-      });
-    }
-  }
+        final cameras = await availableCameras();
+        if (cameras.isEmpty) {
+          throw StateError('No camera was found on this device.');
+        }
 
-  void _startCountdown() {
-    _countdownTimer?.cancel();
-    setState(() => _countdown = _countdownStart);
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted || _isFinished) {
-        timer.cancel();
+        final preferred = cameras.firstWhere(
+          (camera) => camera.lensDirection == CameraLensDirection.front,
+          orElse: () => cameras.first,
+        );
+
+        controller = CameraController(
+          preferred,
+          ResolutionPreset.medium,
+          enableAudio: false,
+        );
+        await controller.initialize();
+
+        if (!mounted) {
+          await controller.dispose();
+          return;
+        }
+
+        final usesStream = controller.supportsImageStreaming();
+        setState(() {
+          _controller = controller;
+          _usesStream = usesStream;
+          _isInitializing = false;
+        });
+
+        _startPoseDetection();
         return;
+      } catch (e) {
+        lastError = e;
+        debugPrint('Guided capture camera init attempt ${attempt + 1} failed: $e');
+        // If the controller was constructed but initialize() (or anything
+        // after it) failed, it's not wired to _controller yet, so nothing
+        // else will ever dispose it — do that here, otherwise every retry
+        // leaks another native camera session.
+        try {
+          await controller?.dispose();
+        } catch (disposeError) {
+          debugPrint('Error disposing failed camera controller: $disposeError');
+        }
+        if (e is StateError) {
+          break;
+        }
       }
-      if (_countdown <= 1) {
-        timer.cancel();
-        unawaited(_captureStep());
-        return;
-      }
-      setState(() => _countdown -= 1);
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isInitializing = false;
+      _errorMessage = _describeCameraError(lastError);
     });
   }
 
-  Future<void> _captureStep() async {
+  String _describeCameraError(Object? error) {
+    if (error is StateError) {
+      return error.message;
+    }
+    if (error is CameraException) {
+      final description = error.description ?? '';
+      if (description.contains('not functioning') ||
+          description.toLowerCase().contains('in use')) {
+        return 'The camera is busy or not responding.\n'
+            'Close any other app using the webcam (Camera, Teams, Zoom, OBS, '
+            'browser tabs) and try again. If you hot-restarted the app, stop '
+            'and relaunch it — hot restart does not release the webcam.\n\n'
+            'Details: ${error.code}: $description';
+      }
+      return 'Camera preview could not start.\n'
+          'Details: ${error.code}: $description';
+    }
+    return 'Camera preview could not start.\nDetails: $error';
+  }
+
+  void _startPoseDetection() {
+    if (_poseCheckUnavailable) {
+      return;
+    }
+    if (_usesStream) {
+      unawaited(_startStream());
+    } else {
+      unawaited(_runSnapshotLoop());
+    }
+  }
+
+  // -- Live frames (Android / iOS) -------------------------------------------
+
+  Future<void> _startStream() async {
     final controller = _controller;
-    if (_isCapturing || controller == null || !controller.value.isInitialized) {
+    if (controller == null ||
+        !_usesStream ||
+        _poseCheckUnavailable ||
+        !_isActive ||
+        controller.value.isStreamingImages) {
+      return;
+    }
+    try {
+      await controller.startImageStream(_onFrame);
+    } catch (e) {
+      debugPrint('Could not start the camera stream: $e');
+      _disablePoseCheck();
+    }
+  }
+
+  Future<void> _stopStream() async {
+    final controller = _controller;
+    if (controller == null || !controller.value.isStreamingImages) {
+      return;
+    }
+    try {
+      await controller.stopImageStream();
+    } catch (e) {
+      debugPrint('Could not stop the camera stream: $e');
+    }
+  }
+
+  void _onFrame(CameraImage image) {
+    final controller = _controller;
+    if (controller == null ||
+        _isAnalyzing ||
+        _isCapturing ||
+        _isPaused ||
+        !_isActive) {
+      return;
+    }
+    final now = DateTime.now();
+    if (now.difference(_lastFrameAt) < _frameInterval) {
+      return;
+    }
+    _lastFrameAt = now;
+    _isAnalyzing = true;
+    unawaited(_analyzeFrame(image, controller));
+  }
+
+  Future<void> _analyzeFrame(
+    CameraImage image,
+    CameraController controller,
+  ) async {
+    try {
+      final face = await _faceProcessor.detectCameraImage(
+        image,
+        rotationDegrees: cameraRotationCompensation(controller),
+      );
+      _detectionErrors = 0;
+      if (!_isActive || _isCapturing) {
+        return;
+      }
+      _lastObservation = face;
+      final check = _guide.check(_currentStep, face);
+      if (!check.ok) {
+        _resetHold(check.hint);
+        return;
+      }
+      final now = DateTime.now();
+      final held = now.difference(_holdStart ??= now);
+      setState(() {
+        _hint = check.hint;
+        _holdProgress =
+            (held.inMilliseconds / _holdDuration.inMilliseconds).clamp(0, 1);
+      });
+      if (held >= _holdDuration) {
+        unawaited(_captureStill(trigger: face));
+      }
+    } catch (e) {
+      _onDetectionError(e);
+    } finally {
+      _isAnalyzing = false;
+    }
+  }
+
+  /// Takes the photo for the current step. Unless [manual], the photo is
+  /// re-checked and discarded if the person moved out of the pose.
+  /// [trigger] is the live-frame observation that led to the capture; it's
+  /// what [PoseGuide.record] learns from, since stills may be mirrored
+  /// relative to live frames.
+  Future<void> _captureStill({
+    FaceObservation? trigger,
+    bool manual = false,
+  }) async {
+    final controller = _controller;
+    if (_isCapturing ||
+        !_isActive ||
+        controller == null ||
+        !controller.value.isInitialized) {
       return;
     }
 
     setState(() => _isCapturing = true);
     try {
+      await _stopStream();
       final shot = await controller.takePicture();
-      _captured.add(File(shot.path));
-
-      if (_stepIndex == _steps.length - 1) {
-        HapticFeedback.mediumImpact();
-        setState(() => _isComplete = true);
-        await Future.delayed(const Duration(milliseconds: 1400));
-        _finish();
+      if (!manual) {
+        FaceObservation? still;
+        try {
+          still = await _faceProcessor.detectEncodedImage(
+            await shot.readAsBytes(),
+          );
+        } catch (e) {
+          debugPrint('Could not re-check the captured photo: $e');
+        }
+        if (!_isActive) {
+          unawaited(deleteCapturedFile(shot.path));
+          return;
+        }
+        final verify = _guide.check(_currentStep, still, ignoreDirection: true);
+        if (!verify.ok) {
+          unawaited(deleteCapturedFile(shot.path));
+          setState(() {
+            _isCapturing = false;
+            _holdStart = null;
+            _holdProgress = 0;
+            _hint = verify.hint;
+          });
+          unawaited(_startStream());
+          return;
+        }
+      }
+      if (!_isActive) {
+        unawaited(deleteCapturedFile(shot.path));
         return;
       }
-
-      HapticFeedback.mediumImpact();
-      setState(() {
-        _stepIndex += 1;
-        _isCapturing = false;
-      });
-      _startCountdown();
+      await _acceptCapture(File(shot.path), trigger);
     } catch (e) {
       debugPrint('Guided capture step failed: $e');
       if (mounted) {
         setState(() => _isCapturing = false);
+        unawaited(_startStream());
       }
     }
   }
 
+  // -- Snapshots (Windows) ---------------------------------------------------
+
+  Future<void> _runSnapshotLoop() async {
+    final loopId = ++_snapshotLoopId;
+    while (loopId == _snapshotLoopId && _isActive && !_poseCheckUnavailable) {
+      final started = DateTime.now();
+      if (!_isPaused) {
+        await _takeSnapshot();
+      }
+      final rest = _snapshotInterval - DateTime.now().difference(started);
+      if (rest > Duration.zero) {
+        await Future<void>.delayed(rest);
+      }
+    }
+  }
+
+  Future<void> _takeSnapshot() async {
+    final controller = _controller;
+    if (controller == null ||
+        !controller.value.isInitialized ||
+        controller.value.isTakingPicture ||
+        _isCapturing) {
+      return;
+    }
+
+    final XFile shot;
+    try {
+      shot = await controller.takePicture();
+    } catch (e) {
+      debugPrint('Snapshot failed: $e');
+      return;
+    }
+    final manual = _manualCaptureRequested;
+    _manualCaptureRequested = false;
+
+    FaceObservation? face;
+    var detected = false;
+    try {
+      face = await _faceProcessor.detectEncodedImage(await shot.readAsBytes());
+      detected = true;
+      _detectionErrors = 0;
+    } catch (e) {
+      _onDetectionError(e);
+    }
+
+    if (!_isActive) {
+      unawaited(deleteCapturedFile(shot.path));
+      return;
+    }
+    if (manual) {
+      await _acceptCapture(File(shot.path), face);
+      return;
+    }
+    if (!detected) {
+      unawaited(deleteCapturedFile(shot.path));
+      return;
+    }
+    final check = _guide.check(_currentStep, face);
+    if (!check.ok) {
+      unawaited(deleteCapturedFile(shot.path));
+      _resetHold(check.hint);
+      return;
+    }
+    await _acceptCapture(File(shot.path), face);
+  }
+
+  // -- Shared ----------------------------------------------------------------
+
+  void _resetHold(String hint) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _hint = hint;
+      _holdStart = null;
+      _holdProgress = 0;
+    });
+  }
+
+  Future<void> _acceptCapture(File file, FaceObservation? face) async {
+    _guide.record(_currentStep, face);
+    _captured.add(file);
+    HapticFeedback.mediumImpact();
+
+    if (_stepIndex == _steps.length - 1) {
+      setState(() {
+        _isComplete = true;
+        _isCapturing = false;
+      });
+      await Future.delayed(const Duration(milliseconds: 1400));
+      _finish();
+      return;
+    }
+
+    _pausedUntil = DateTime.now().add(_stepCooldown);
+    setState(() {
+      _stepIndex += 1;
+      _isCapturing = false;
+      _holdStart = null;
+      _holdProgress = 0;
+      _lastObservation = null;
+      _hint = _poseCheckUnavailable ? _manualOnlyHint : 'Nice! Next pose';
+    });
+    unawaited(_startStream());
+  }
+
+  static const _manualOnlyHint =
+      'Automatic pose check is unavailable. Use Capture Now for each angle.';
+
+  void _onDetectionError(Object error) {
+    debugPrint('Pose detection failed: $error');
+    _detectionErrors += 1;
+    if (_detectionErrors >= _maxDetectionErrors) {
+      _disablePoseCheck();
+    }
+  }
+
+  void _disablePoseCheck() {
+    if (_poseCheckUnavailable) {
+      return;
+    }
+    _poseCheckUnavailable = true;
+    _snapshotLoopId += 1;
+    unawaited(_stopStream());
+    _resetHold(_manualOnlyHint);
+  }
+
   void _captureNow() {
-    _countdownTimer?.cancel();
-    unawaited(_captureStep());
+    if (_isCapturing || !_isActive) {
+      return;
+    }
+    if (!_usesStream && !_poseCheckUnavailable) {
+      // The snapshot loop owns the camera; have it keep its next shot.
+      _pausedUntil = DateTime.fromMillisecondsSinceEpoch(0);
+      setState(() {
+        _manualCaptureRequested = true;
+        _hint = 'Capturing...';
+      });
+      return;
+    }
+    unawaited(_captureStill(trigger: _lastObservation, manual: true));
   }
 
   void _finish() {
     _isFinished = true;
-    _countdownTimer?.cancel();
+    _snapshotLoopId += 1;
     if (mounted) {
       Navigator.of(context).pop(List<File>.from(_captured));
     }
@@ -827,7 +1154,7 @@ class _GuidedFaceCaptureDialogState extends State<_GuidedFaceCaptureDialog> {
 
   void _cancel() {
     _isFinished = true;
-    _countdownTimer?.cancel();
+    _snapshotLoopId += 1;
     for (final file in _captured) {
       unawaited(deleteCapturedFile(file.path));
     }
@@ -839,8 +1166,9 @@ class _GuidedFaceCaptureDialogState extends State<_GuidedFaceCaptureDialog> {
   @override
   void dispose() {
     _isFinished = true;
-    _countdownTimer?.cancel();
+    _snapshotLoopId += 1;
     _controller?.dispose();
+    _faceProcessor.dispose();
     super.dispose();
   }
 
@@ -885,7 +1213,12 @@ class _GuidedFaceCaptureDialogState extends State<_GuidedFaceCaptureDialog> {
                 Text(
                   _isCapturing
                       ? 'Capturing...'
-                      : '${_currentStep.instruction} (${_countdown}s)',
+                      : _errorMessage != null
+                          ? 'Camera unavailable'
+                          : _poseCheckUnavailable
+                              ? _currentStep.instruction
+                              : '${_currentStep.instruction} '
+                                  'It captures automatically when the pose is right.',
                   style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                 ),
                 const SizedBox(height: 12),
@@ -971,6 +1304,17 @@ class _GuidedFaceCaptureDialogState extends State<_GuidedFaceCaptureDialog> {
                                             ),
                                             child: const Text('Grant Camera Permission'),
                                           ),
+                                        ] else ...[
+                                          const SizedBox(height: 16),
+                                          OutlinedButton.icon(
+                                            onPressed: _initializeCamera,
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: const Color(0xFFCBD5E1),
+                                              side: const BorderSide(color: Color(0xFF272F44)),
+                                            ),
+                                            icon: const Icon(Icons.refresh_rounded, size: 16),
+                                            label: const Text('Try Again'),
+                                          ),
                                         ],
                                       ],
                                     ),
@@ -987,26 +1331,12 @@ class _GuidedFaceCaptureDialogState extends State<_GuidedFaceCaptureDialog> {
                                           if (!_isCapturing)
                                             Positioned(
                                               bottom: 16,
-                                              left: 0,
-                                              right: 0,
+                                              left: 16,
+                                              right: 16,
                                               child: Center(
-                                                child: Container(
-                                                  width: 48,
-                                                  height: 48,
-                                                  alignment: Alignment.center,
-                                                  decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    color: Colors.black.withValues(alpha: 0.55),
-                                                    border: Border.all(color: Colors.white, width: 2),
-                                                  ),
-                                                  child: Text(
-                                                    '$_countdown',
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 20,
-                                                      fontWeight: FontWeight.w700,
-                                                    ),
-                                                  ),
+                                                child: _PoseHintPill(
+                                                  hint: _hint,
+                                                  holdProgress: _holdProgress,
                                                 ),
                                               ),
                                             ),
@@ -1028,7 +1358,13 @@ class _GuidedFaceCaptureDialogState extends State<_GuidedFaceCaptureDialog> {
                       child: const Text('Cancel'),
                     ),
                     OutlinedButton.icon(
-                      onPressed: _isInitializing || _isCapturing || _isComplete ? null : _captureNow,
+                      onPressed: _isInitializing ||
+                              _isCapturing ||
+                              _isComplete ||
+                              _manualCaptureRequested ||
+                              _controller == null
+                          ? null
+                          : _captureNow,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFFCBD5E1),
                         side: const BorderSide(color: Color(0xFF272F44)),
@@ -1042,6 +1378,63 @@ class _GuidedFaceCaptureDialogState extends State<_GuidedFaceCaptureDialog> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Live guidance shown over the capture preview: what to do next, with a
+/// ring that fills while a correct pose is being held.
+class _PoseHintPill extends StatelessWidget {
+  const _PoseHintPill({required this.hint, required this.holdProgress});
+
+  final String hint;
+  final double holdProgress;
+
+  @override
+  Widget build(BuildContext context) {
+    final holding = holdProgress > 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: holding ? const Color(0xFF34D399) : const Color(0x66FFFFFF),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: holding
+                ? CircularProgressIndicator(
+                    value: holdProgress,
+                    strokeWidth: 2.5,
+                    color: const Color(0xFF34D399),
+                    backgroundColor: const Color(0x33FFFFFF),
+                  )
+                : const Icon(
+                    Icons.face_outlined,
+                    size: 18,
+                    color: Colors.white,
+                  ),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              hint,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

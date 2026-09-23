@@ -1,0 +1,45 @@
+diff --git a/tensorflow/core/public/release_version.h b/tensorflow/core/public/release_version.h
+index 9e2eb8d0..e36a4fd8 100644
+--- a/tensorflow/core/public/release_version.h
++++ b/tensorflow/core/public/release_version.h
+@@ -23,6 +23,13 @@ limitations under the License.
+ // --repo_env=ML_WHEEL_VERSION_SUFFIX=<suffix>.
+ // To update the project version, update tf_version.bzl.
+ 
++#ifndef TF_MAJOR_VERSION
++#define TF_MAJOR_VERSION 2
++#define TF_MINOR_VERSION 20
++#define TF_PATCH_VERSION 0
++#define TF_VERSION_SUFFIX ""
++#endif
++
+ #define _TF_STR_HELPER(x) #x
+ #define _TF_STR(x) _TF_STR_HELPER(x)
+ 
+diff --git a/tensorflow/lite/CMakeLists.txt b/tensorflow/lite/CMakeLists.txt
+index 3198ec61..2449c7f2 100644
+--- a/tensorflow/lite/CMakeLists.txt
++++ b/tensorflow/lite/CMakeLists.txt
+@@ -741,7 +741,7 @@ target_link_libraries(tensorflow-lite
+     ${TFLITE_TARGET_DEPENDENCIES}
+ )
+ 
+-if (NOT BUILD_SHARED_LIBS)
++if (NOT BUILD_SHARED_LIBS AND NOT TFLITE_C_BUILD_SHARED_LIBS)
+   list(APPEND TFLITE_TARGET_PUBLIC_OPTIONS "-DTFL_STATIC_LIBRARY_BUILD")
+ endif()
+ 
+diff --git a/tensorflow/lite/core/model_building.h b/tensorflow/lite/core/model_building.h
+index 8b9b87e2..e0075d54 100644
+--- a/tensorflow/lite/core/model_building.h
++++ b/tensorflow/lite/core/model_building.h
+@@ -89,7 +89,8 @@ class [[nodiscard]] Buffer {
+   Buffer(const Buffer&) = default;
+   Buffer& operator=(const Buffer&) = default;
+ 
+- private:
++  // Local MSVC build patch: friend class Tensor is rejected by MSVC.
++ public:
+   Buffer(InterpreterInfo* builder, BufferIdx buffer_idx)
+       : builder_(builder), buffer_idx_(buffer_idx) {}
+ 

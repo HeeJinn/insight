@@ -27,7 +27,7 @@ class ContourFaceGeometry extends TrackedFaceGeometry {
 }
 
 /// Windows: a fractional (0..1) box, sourced from the existing
-/// tflite-based FaceProcessor.detectFace() bounding box rather than a
+/// tflite-based FaceProcessor (BlazeFace) face box rather than a
 /// live ML Kit stream (ML Kit has no desktop implementation).
 class NormalizedBoxGeometry extends TrackedFaceGeometry {
   final double left;

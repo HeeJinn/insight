@@ -3,13 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../app_theme.dart';
 import 'flavor_profiles_provider.dart';
+import '../services/face_processor.dart';
 
-final recognitionThresholdProvider = StateProvider<double>((ref) => 0.70);
+final recognitionThresholdProvider = StateProvider<double>(
+  (ref) => FaceProcessor.defaultThreshold,
+);
 
 enum AppThemePreference { system, light, dark }
 
 const _themePrefKey = 'theme_preference';
-const _thresholdKey = 'recognition_threshold';
+// v2: thresholds saved for the old pipeline (0.35-1.20 scale) are not
+// meaningful for aligned MobileFaceNet embeddings, so they are ignored.
+const _thresholdKey = 'recognition_threshold_v2';
 const _animationsKey = 'animations_enabled';
 const _soundKey = 'sound_feedback_enabled';
 const _compactKey = 'compact_mode_enabled';
@@ -30,7 +35,7 @@ final settingsBootstrapProvider = FutureProvider<void>((ref) async {
   );
   ref.read(themePreferenceProvider.notifier).state = theme;
   ref.read(recognitionThresholdProvider.notifier).state =
-      prefs.getDouble(_thresholdKey) ?? 0.70;
+      prefs.getDouble(_thresholdKey) ?? FaceProcessor.defaultThreshold;
   ref.read(animationsEnabledProvider.notifier).state = prefs.getBool(_animationsKey) ?? true;
   ref.read(soundFeedbackProvider.notifier).state = prefs.getBool(_soundKey) ?? true;
   ref.read(compactModeProvider.notifier).state = prefs.getBool(_compactKey) ?? false;

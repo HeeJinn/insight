@@ -2,10 +2,8 @@ import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
-import 'package:image/image.dart' as img;
 import 'package:lottie/lottie.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../app_theme.dart';
@@ -15,6 +13,7 @@ import '../models/session_entry.dart';
 import '../models/student.dart';
 import '../providers/settings_provider.dart';
 import '../providers/sessions_provider.dart';
+import '../services/camera_rotation.dart';
 import '../services/captured_file_cleanup.dart';
 import '../services/face_processor.dart';
 import '../services/live_face_tracker.dart';
@@ -67,6 +66,23 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
   Timer? _cooldownTicker;
   Timer? _snapshotTicker;
   int _cooldownSecondsLeft = 0;
+
+  /// Students whose baselines came from the current face model. Profiles
+  /// enrolled with an older pipeline cannot be matched and must be
+  /// registered again.
+  bool get _hasMatchableStudents =>
+      widget.studentsBox.values.any(FaceProcessor.hasCompatibleEmbeddings);
+
+  String get _idleStatusLabel {
+    if (!_hasMatchableStudents) {
+      return widget.studentsBox.isEmpty
+          ? 'Register students to start scanning'
+          : 'Re-register students to use the updated face model';
+    }
+    return _usesSnapshotScanning
+        ? 'Align your face for a quick snapshot'
+        : 'Center your face in the frame';
+  }
 
   bool get _usesSnapshotScanning =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
@@ -160,9 +176,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       setState(() {
         _controller = controller;
         _initializationFailed = false;
-        _statusLabel = _usesSnapshotScanning
-            ? 'Align your face for a quick snapshot'
-            : 'Center your face in the frame';
+        _statusLabel = _idleStatusLabel;
       });
 
       _startScanning();
@@ -207,14 +221,17 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       }
       _lastProcessedAt = now;
 
+      // Recognition time is measured from the moment the frame arrives
+      // until the attendance record is written.
+      final scanTimer = Stopwatch()..start();
       _isProcessing = true;
       try {
-        final recognized = await _processImage(image);
+        final outcome = await _processImage(image);
         if (!mounted) {
           return;
         }
 
-        _handleRecognition(recognized);
+        _handleRecognition(outcome, scanTimer);
       } catch (e) {
         debugPrint('Error processing image: $e');
         if (mounted) {
@@ -253,13 +270,16 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       }
       _lastProcessedAt = now;
 
+      // Includes the snapshot capture itself, so the time covers capture,
+      // processing, matching and logging.
+      final scanTimer = Stopwatch()..start();
       _isProcessing = true;
       try {
-        final recognized = await _processStillCapture();
+        final outcome = await _processStillCapture();
         if (!mounted) {
           return;
         }
-        _handleRecognition(recognized);
+        _handleRecognition(outcome, scanTimer);
       } catch (e) {
         debugPrint('Error processing snapshot capture: $e');
         if (mounted) {
@@ -326,97 +346,68 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     _isStreaming = false;
   }
 
-  Future<String?> _processImage(CameraImage image) async {
+  Future<_ScanOutcome> _processImage(CameraImage image) async {
     final processor = _faceProcessor;
     final controller = _controller;
     if (processor == null || controller == null) {
-      return null;
+      return const _ScanOutcome.none();
     }
 
-    final threshold = ref.read(recognitionThresholdProvider);
-    final convertedImage = processor.convertCameraImage(image);
-    final rotatedImage = processor.rotateImage(
-      convertedImage,
-      rotationDegrees: _rotationCompensation(controller),
+    final scan = await processor.processCameraImage(
+      image,
+      rotationDegrees: cameraRotationCompensation(controller),
     );
-    final bbox = await processor.detectFace(rotatedImage);
-    final cropped = processor.cropFace(rotatedImage, bbox);
-    final embedding = await processor.recognizeFace(cropped);
-    final mirroredCrop = processor.flipImageHorizontally(
-      img.Image.from(cropped),
-    );
-    final mirroredEmbedding = await processor.recognizeFace(mirroredCrop);
-    final students = widget.studentsBox.values.toList(growable: false);
-    return processor.recognizeStudent(
-      students,
-      embedding,
-      threshold: threshold,
-      alternateEmbeddings: [mirroredEmbedding],
-    );
+    return _matchScan(processor, scan);
   }
 
-  Future<String?> _processStillCapture() async {
+  Future<_ScanOutcome> _processStillCapture() async {
     final processor = _faceProcessor;
     final controller = _controller;
     if (processor == null || controller == null) {
-      return null;
+      return const _ScanOutcome.none();
     }
 
-    final threshold = ref.read(recognitionThresholdProvider);
     final picture = await controller.takePicture();
     try {
       final bytes = await picture.readAsBytes();
-      final capturedImage = img.decodeImage(bytes);
-      if (capturedImage == null) {
-        throw StateError('The captured snapshot could not be decoded.');
-      }
-
-      final bbox = await processor.detectFace(capturedImage);
+      final scan = await processor.processEncodedImage(bytes);
       if (mounted) {
-        _liveFaceFrameNotifier.value = LiveFaceTrackingFrame(
-          geometry: NormalizedBoxGeometry(
-            left: bbox[0],
-            top: bbox[1],
-            width: bbox[2],
-            height: bbox[3],
-          ),
-        );
+        _liveFaceFrameNotifier.value = scan == null
+            ? null
+            : LiveFaceTrackingFrame(
+                geometry: NormalizedBoxGeometry(
+                  left: scan.box[0],
+                  top: scan.box[1],
+                  width: scan.box[2],
+                  height: scan.box[3],
+                ),
+              );
       }
-      final cropped = processor.cropFace(capturedImage, bbox);
-      final embedding = await processor.recognizeFace(cropped);
-      final mirroredCrop = processor.flipImageHorizontally(
-        img.Image.from(cropped),
-      );
-      final mirroredEmbedding = await processor.recognizeFace(mirroredCrop);
-      final students = widget.studentsBox.values.toList(growable: false);
-      return await processor.recognizeStudent(
-        students,
-        embedding,
-        threshold: threshold,
-        alternateEmbeddings: [mirroredEmbedding],
-      );
+      return _matchScan(processor, scan);
     } finally {
       await deleteCapturedFile(picture.path);
     }
   }
 
-  int _rotationCompensation(CameraController controller) {
-    final deviceRotation = switch (controller.value.deviceOrientation) {
-      DeviceOrientation.portraitUp => 0,
-      DeviceOrientation.landscapeLeft => 90,
-      DeviceOrientation.portraitDown => 180,
-      DeviceOrientation.landscapeRight => 270,
-    };
-
-    final sensorOrientation = controller.description.sensorOrientation;
-    if (controller.description.lensDirection == CameraLensDirection.front) {
-      return (sensorOrientation + deviceRotation) % 360;
+  Future<_ScanOutcome> _matchScan(
+    FaceProcessor processor,
+    FaceScanResult? scan,
+  ) async {
+    if (scan == null) {
+      return const _ScanOutcome.none();
     }
-
-    return (sensorOrientation - deviceRotation + 360) % 360;
+    final threshold = ref.read(recognitionThresholdProvider);
+    final students = widget.studentsBox.values.toList(growable: false);
+    final studentId = await processor.recognizeStudent(
+      students,
+      scan.embedding,
+      threshold: threshold,
+      alternateEmbeddings: [scan.mirroredEmbedding],
+    );
+    return _ScanOutcome(studentId, scan);
   }
 
-  bool _logAttendanceIfNeeded(String studentId) {
+  bool _logAttendanceIfNeeded(String studentId, Stopwatch scanTimer) {
     final now = DateTime.now();
     final recent = _recentAttendanceByStudent[studentId];
     if (recent != null && now.difference(recent) < _attendanceDedupeWindow) {
@@ -438,6 +429,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       timestamp: now,
       sessionTitle: activeSession?.title,
       room: activeSession?.room,
+      latencyMs: scanTimer.elapsedMilliseconds,
     );
     widget.attendanceBox.add(attendance);
     _recentAttendanceByStudent[studentId] = now;
@@ -457,7 +449,8 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     return remaining.inSeconds;
   }
 
-  void _handleRecognition(String? recognized) {
+  void _handleRecognition(_ScanOutcome outcome, Stopwatch scanTimer) {
+    final recognized = outcome.studentId;
     if (recognized == null ||
         recognized == _recognizedStudent ||
         DateTime.now().difference(_lastRecognitionAt) <= _recognitionCooldown) {
@@ -465,7 +458,14 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     }
 
     _lastRecognitionAt = DateTime.now();
-    final didLog = _logAttendanceIfNeeded(recognized);
+    final didLog = _logAttendanceIfNeeded(recognized, scanTimer);
+    final scan = outcome.scan;
+    if (scan != null) {
+      debugPrint(
+        'Recognized $recognized: pipeline ${scan.processingMs} ms, '
+        'capture-to-log ${scanTimer.elapsedMilliseconds} ms',
+      );
+    }
     final remaining = _remainingCooldownSeconds(recognized);
     setState(() {
       _recognizedStudent = recognized;
@@ -479,9 +479,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       if (mounted) {
         setState(() {
           _recognizedStudent = null;
-          _statusLabel = _usesSnapshotScanning
-              ? 'Align your face for a quick snapshot'
-              : 'Center your face in the frame';
+          _statusLabel = _idleStatusLabel;
         });
       }
     });
@@ -820,3 +818,10 @@ class _ScannerStatePanel extends StatelessWidget {
   }
 }
 
+class _ScanOutcome {
+  const _ScanOutcome(this.studentId, this.scan);
+  const _ScanOutcome.none() : studentId = null, scan = null;
+
+  final String? studentId;
+  final FaceScanResult? scan;
+}

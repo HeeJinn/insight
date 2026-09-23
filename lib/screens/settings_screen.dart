@@ -103,9 +103,9 @@ class SettingsScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                   Slider(
                     value: threshold,
-                    min: 0.35,
-                    max: 1.20,
-                    divisions: 34,
+                    min: 0.60,
+                    max: 1.40,
+                    divisions: 16,
                     label: threshold.toStringAsFixed(2),
                     onChanged: (value) {
                       ref.read(recognitionThresholdProvider.notifier).state =
@@ -205,7 +205,7 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'The app prefers bundled TFLite models and falls back to offline image-feature embeddings if model execution fails.',
+                    'Faces are detected with BlazeFace, aligned to a standard template, and matched with MobileFaceNet, all on this device.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 18),
@@ -220,9 +220,9 @@ class SettingsScreen extends ConsumerWidget {
                   _InfoTile(
                     color: context.appColors.blue,
                     icon: Icons.shield_outlined,
-                    title: 'Fallback protection',
+                    title: 'Background processing',
                     subtitle:
-                        'Registration keeps working when model calls fail.',
+                        'Face processing runs off the UI thread to keep the app responsive.',
                   ),
                 ],
               ),

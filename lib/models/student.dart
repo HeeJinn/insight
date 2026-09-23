@@ -11,7 +11,7 @@ class Student extends HiveObject {
   String name;
 
   @HiveField(2)
-  List<List<double>> embeddings; // List of 5 embeddings, each 128D
+  List<List<double>> embeddings; // 5 baseline embeddings, each 192-D (MobileFaceNet)
 
   Student({required this.id, required this.name, required this.embeddings});
 }

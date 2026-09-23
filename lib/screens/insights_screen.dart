@@ -66,6 +66,14 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   final coverage = studentsBox.isEmpty
                       ? 0
                       : ((uniqueStudents / studentsBox.length) * 100).round();
+                  final timedLogs = inRangeLogs
+                      .map((a) => a.latencyMs)
+                      .whereType<int>()
+                      .toList();
+                  final averageLatencyMs = timedLogs.isEmpty
+                      ? null
+                      : (timedLogs.reduce((a, b) => a + b) / timedLogs.length)
+                            .round();
 
                   final q = query.trim().toLowerCase();
                   final filtered =
@@ -281,6 +289,27 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                           '$uniqueStudents of ${studentsBox.length} students',
                                       trailing: Text(
                                         '$coverage%',
+                                        style: AppleTypography.tabularNumber(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: context.appColors.primaryText,
+                                        ),
+                                      ),
+                                    ),
+                                    AppleListRow(
+                                      leading: AppIconBadge(
+                                        icon: Icons.timer_outlined,
+                                        tint: context.appColors.accent,
+                                        size: 32,
+                                      ),
+                                      title: 'Avg. Recognition Time',
+                                      subtitle: timedLogs.isEmpty
+                                          ? 'No timed check-ins yet'
+                                          : 'Capture to log, ${timedLogs.length} timed check-ins',
+                                      trailing: Text(
+                                        averageLatencyMs == null
+                                            ? '-'
+                                            : '$averageLatencyMs ms',
                                         style: AppleTypography.tabularNumber(
                                           fontSize: 20,
                                           fontWeight: FontWeight.w700,

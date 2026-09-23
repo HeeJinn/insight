@@ -21,13 +21,14 @@ class AttendanceAdapter extends TypeAdapter<Attendance> {
       timestamp: fields[1] as DateTime,
       sessionTitle: fields[2] as String?,
       room: fields[3] as String?,
+      latencyMs: (fields[4] as num?)?.toInt(),
     );
   }
 
   @override
   void write(BinaryWriter writer, Attendance obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.studentId)
       ..writeByte(1)
@@ -35,7 +36,9 @@ class AttendanceAdapter extends TypeAdapter<Attendance> {
       ..writeByte(2)
       ..write(obj.sessionTitle)
       ..writeByte(3)
-      ..write(obj.room);
+      ..write(obj.room)
+      ..writeByte(4)
+      ..write(obj.latencyMs);
   }
 
   @override

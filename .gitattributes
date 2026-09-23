@@ -1,0 +1,3 @@
+# Patches are applied to upstream sources that use LF line endings; keep them
+# byte-for-byte so core.autocrlf doesn't rewrite them to CRLF on checkout.
+*.patch -text

@@ -16,10 +16,16 @@ class Attendance extends HiveObject {
   @HiveField(3)
   String? room;
 
+  /// Milliseconds from frame capture to this record being saved. Null for
+  /// records created before timing was added.
+  @HiveField(4)
+  int? latencyMs;
+
   Attendance({
     required this.studentId,
     required this.timestamp,
     this.sessionTitle,
     this.room,
+    this.latencyMs,
   });
 }
