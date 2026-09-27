@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/session_entry.dart';
 import '../providers/sessions_provider.dart';
+import '../providers/settings_provider.dart';
 import '../services/session_clock.dart';
 import '../ui/insight_ui.dart';
 
@@ -89,7 +90,9 @@ class _SessionEditorState extends ConsumerState<_SessionEditor> {
     _date = s?.date ?? DateTime(now.year, now.month, now.day);
     _start = s?.startMinuteOfDay ?? 9 * 60;
     _end = s?.endMinuteOfDay ?? 10 * 60 + 30;
-    _lateAfter = s?.lateAfterMinutes ?? SessionEntry.defaultLateAfterMinutes;
+    // New sessions, drafts included, start from the default in Settings.
+    _lateAfter =
+        widget.existing?.lateAfterMinutes ?? ref.read(defaultLateAfterProvider);
   }
 
   @override

@@ -163,3 +163,120 @@ class _AdminUnlockDialogState extends ConsumerState<_AdminUnlockDialog> {
     );
   }
 }
+
+/// Sets a new admin PIN after checking the current one. Resolves to true
+/// when the PIN changed.
+Future<bool> showChangePinDialog(BuildContext context) async {
+  final changed = await showCupertinoDialog<bool>(
+    context: context,
+    barrierDismissible: true,
+    builder: (_) => const _ChangePinDialog(),
+  );
+  return changed ?? false;
+}
+
+class _ChangePinDialog extends ConsumerStatefulWidget {
+  const _ChangePinDialog();
+
+  @override
+  ConsumerState<_ChangePinDialog> createState() => _ChangePinDialogState();
+}
+
+class _ChangePinDialogState extends ConsumerState<_ChangePinDialog> {
+  final _current = TextEditingController();
+  final _next = TextEditingController();
+  final _confirm = TextEditingController();
+  late final bool _hasPin = ref.read(adminLockControllerProvider).hasPin;
+  String? _error;
+
+  @override
+  void dispose() {
+    _current.dispose();
+    _next.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final lock = ref.read(adminLockControllerProvider);
+    if (_hasPin && _current.text.trim() != ref.read(adminPinProvider)) {
+      HapticFeedback.heavyImpact();
+      setState(() => _error = 'The current PIN is incorrect.');
+      return;
+    }
+    final pin = _next.text.trim();
+    if (pin.length < _AdminUnlockDialogState._minLength) {
+      setState(
+        () => _error =
+            'Use at least ${_AdminUnlockDialogState._minLength} digits.',
+      );
+      return;
+    }
+    if (pin != _confirm.text.trim()) {
+      setState(() => _error = "The new PINs don't match.");
+      return;
+    }
+    await lock.setPin(pin);
+    if (mounted) Navigator.of(context).pop(true);
+  }
+
+  Widget _field(
+    TextEditingController c,
+    String placeholder, {
+    bool first = false,
+  }) {
+    return Padding(
+      padding: EdgeInsets.only(top: first ? 12 : 8),
+      child: CupertinoTextField(
+        controller: c,
+        autofocus: first,
+        placeholder: placeholder,
+        obscureText: true,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        maxLength: 8,
+        textAlign: TextAlign.center,
+        autocorrect: false,
+        enableSuggestions: false,
+        onChanged: (_) {
+          if (_error != null) setState(() => _error = null);
+        },
+        onSubmitted: (_) => _submit(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final danger = InsightColors.danger.resolveFrom(context);
+    return CupertinoAlertDialog(
+      title: Text(_hasPin ? 'Change Admin PIN' : 'Set Admin PIN'),
+      content: Column(
+        children: [
+          if (_hasPin) _field(_current, 'Current PIN', first: true),
+          _field(_next, 'New PIN', first: !_hasPin),
+          _field(_confirm, 'Confirm New PIN'),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _error!,
+                style: InsightText.footnote.copyWith(color: danger),
+              ),
+            ),
+        ],
+      ),
+      actions: [
+        CupertinoDialogAction(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        CupertinoDialogAction(
+          isDefaultAction: true,
+          onPressed: _submit,
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}

@@ -1,149 +1,170 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../app_theme.dart';
-import '../providers/app_state_provider.dart';
-import '../widgets/app_chrome.dart';
 
+import '../providers/app_state_provider.dart';
+import '../ui/insight_ui.dart';
+
+/// What Insight does with faces and attendance. During onboarding it ends
+/// with Accept & Return, which reports acceptance back to onboarding.
 class PrivacyPolicyScreen extends ConsumerWidget {
   const PrivacyPolicyScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final onboardingDone = ref.watch(onboardingDoneProvider);
+    final secondary = InsightColors.secondaryLabel.resolveFrom(context);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Privacy Policy')),
-      body: AppBackground(
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Expanded(
+    return CupertinoPageScaffold(
+      navigationBar: insightPushedBar(title: 'Privacy Policy'),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 680),
                   child: ListView(
+                    padding: const EdgeInsets.only(top: 12, bottom: 24),
                     children: [
-                      AppPanel(
-                        radius: 18,
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.shield_outlined,
-                                  color: context.appColors.accentDark,
-                                  size: 28,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Privacy & Security First',
-                                  style: Theme.of(context).textTheme.titleLarge,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'This app operates with a privacy-first posture. '
-                              'All biometric recognition data and attendance records '
-                              'are processed and stored strictly on your device.',
-                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    height: 1.5,
-                                  ),
-                            ),
-                            const Divider(height: 32),
-                            Text(
-                              'By continuing, you agree to:',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 12),
-                            _buildPolicyBullet(
-                              context,
-                              icon: Icons.person_pin_rounded,
-                              title: 'Local Student Profiles',
-                              subtitle:
-                                  'Facial embeddings and profiles are saved on local device storage.',
-                            ),
-                            const SizedBox(height: 10),
-                            _buildPolicyBullet(
-                              context,
-                              icon: Icons.history_toggle_off_rounded,
-                              title: 'Local Attendance Logs',
-                              subtitle:
-                                  'Kiosk scanning records stay on device with export options.',
-                            ),
-                            const SizedBox(height: 10),
-                            _buildPolicyBullet(
-                              context,
-                              icon: Icons.camera_front_rounded,
-                              title: 'On-Device Camera Access',
-                              subtitle:
-                                  'Camera feeds are processed in real time and never uploaded to any cloud.',
-                            ),
-                            const Divider(height: 32),
-                            Text(
-                              'You can delete student profiles and reset local data at any time '
-                              'from the Students and Settings sections.',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
+                      Center(
+                        child: SymbolBadge(
+                          CupertinoIcons.lock_shield_fill,
+                          InsightColors.accent.resolveFrom(context),
+                          size: 64,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Privacy & Security First',
+                        textAlign: TextAlign.center,
+                        style: InsightText.title1.copyWith(
+                          color: InsightColors.label.resolveFrom(context),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Text(
+                          'Insight works entirely on this device. Faces and '
+                          'attendance records are processed and stored here, '
+                          'never uploaded.',
+                          textAlign: TextAlign.center,
+                          style: InsightText.body.copyWith(color: secondary),
+                        ),
+                      ),
+                      InsightListSection(
+                        header: 'By continuing, you agree to',
+                        children: [
+                          _PolicyRow(
+                            icon: CupertinoIcons.person_crop_circle_fill,
+                            color: CupertinoColors.systemBlue,
+                            title: 'Local Student Profiles',
+                            detail:
+                                'Face profiles (numeric embeddings, not photos) '
+                                'and names are saved in this device\'s storage.',
+                          ),
+                          _PolicyRow(
+                            icon: CupertinoIcons.checkmark_seal_fill,
+                            color: CupertinoColors.systemGreen,
+                            title: 'Local Attendance Logs',
+                            detail:
+                                'Check-ins stay on this device. An admin can '
+                                'export them as a CSV file.',
+                          ),
+                          _PolicyRow(
+                            icon: CupertinoIcons.camera_fill,
+                            color: CupertinoColors.systemOrange,
+                            title: 'On-Device Camera Access',
+                            detail:
+                                'The camera feed is analyzed in real time and '
+                                'discarded. Enrollment photos are deleted once '
+                                'the face profile is made.',
+                          ),
+                        ],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(32, 12, 32, 0),
+                        child: Text(
+                          'Delete a student in Students, or erase records and '
+                          'all data in Settings, at any time.',
+                          style: InsightText.footnote.copyWith(
+                            color: secondary,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                if (!onboardingDone) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
+              ),
+            ),
+            if (!onboardingDone)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton.icon(
+                    child: CupertinoButton.filled(
+                      sizeStyle: CupertinoButtonSize.large,
+                      borderRadius: BorderRadius.circular(InsightRadii.capsule),
                       onPressed: () => context.pop(true),
-                      icon: const Icon(Icons.check_circle_rounded),
-                      label: const Text('Accept & Return'),
+                      child: const Text('Accept & Return'),
                     ),
                   ),
-                ],
-              ],
-            ),
-          ),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildPolicyBullet(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          icon,
-          size: 20,
-          color: context.appColors.accentDark,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
+class _PolicyRow extends StatelessWidget {
+  const _PolicyRow({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.detail,
+  });
+
+  final IconData icon;
+  final CupertinoDynamicColor color;
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SymbolBadge(icon, color.resolveFrom(context)),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: InsightText.headline.copyWith(
+                    color: InsightColors.label.resolveFrom(context),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  detail,
+                  style: InsightText.subheadline.copyWith(
+                    color: InsightColors.secondaryLabel.resolveFrom(context),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
