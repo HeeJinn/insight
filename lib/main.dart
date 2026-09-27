@@ -1,13 +1,5 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart'
-    show
-        DefaultMaterialLocalizations,
-        Material,
-        MaterialType,
-        ScaffoldMessenger,
-        Theme;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'app_theme.dart';
 import 'providers/admin_lock_provider.dart';
 import 'providers/app_state_provider.dart';
 import 'providers/router_provider.dart';
@@ -56,36 +48,6 @@ class InsightApp extends ConsumerWidget {
       title: 'Insight',
       theme: theme,
       routerConfig: ref.watch(routerProvider),
-      localizationsDelegates: const [
-        DefaultMaterialLocalizations.delegate,
-        DefaultCupertinoLocalizations.delegate,
-        DefaultWidgetsLocalizations.delegate,
-      ],
-      builder: (context, child) => _MaterialBridge(child: child!),
-    );
-  }
-}
-
-/// Keeps screens that still use Material widgets working under
-/// `CupertinoApp` while they are rebuilt: a Material theme matched to the
-/// current brightness, a messenger for their snackbars, and a transparent
-/// Material for ink. Remove once no screen needs it.
-class _MaterialBridge extends ConsumerWidget {
-  const _MaterialBridge({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
-    final seed = ref.watch(activeThemeSeedProvider);
-    return Theme(
-      data: dark
-          ? AppTheme.dark(seedColor: seed)
-          : AppTheme.light(seedColor: seed),
-      child: ScaffoldMessenger(
-        child: Material(type: MaterialType.transparency, child: child),
-      ),
     );
   }
 }

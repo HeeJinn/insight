@@ -1,9 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../app_theme.dart';
 import '../models/session_entry.dart';
-import 'flavor_profiles_provider.dart';
 import '../services/face_processor.dart';
 
 final recognitionThresholdProvider = StateProvider<double>(
@@ -16,17 +13,13 @@ const _themePrefKey = 'theme_preference';
 // v2: thresholds saved for the old pipeline (0.35-1.20 scale) are not
 // meaningful for aligned MobileFaceNet embeddings, so they are ignored.
 const _thresholdKey = 'recognition_threshold_v2';
-const _animationsKey = 'animations_enabled';
 const _soundKey = 'sound_feedback_enabled';
-const _compactKey = 'compact_mode_enabled';
 const _lateDefaultKey = 'default_late_after_minutes';
 
 final themePreferenceProvider = StateProvider<AppThemePreference>(
   (ref) => AppThemePreference.system,
 );
-final animationsEnabledProvider = StateProvider<bool>((ref) => true);
 final soundFeedbackProvider = StateProvider<bool>((ref) => true);
-final compactModeProvider = StateProvider<bool>((ref) => false);
 
 /// The late cutoff new sessions start with, in minutes after the start.
 final defaultLateAfterProvider = StateProvider<int>(
@@ -44,29 +37,10 @@ final settingsBootstrapProvider = FutureProvider<void>((ref) async {
   ref.read(themePreferenceProvider.notifier).state = theme;
   ref.read(recognitionThresholdProvider.notifier).state =
       prefs.getDouble(_thresholdKey) ?? FaceProcessor.defaultThreshold;
-  ref.read(animationsEnabledProvider.notifier).state =
-      prefs.getBool(_animationsKey) ?? true;
   ref.read(soundFeedbackProvider.notifier).state =
       prefs.getBool(_soundKey) ?? true;
-  ref.read(compactModeProvider.notifier).state =
-      prefs.getBool(_compactKey) ?? false;
   ref.read(defaultLateAfterProvider.notifier).state =
       prefs.getInt(_lateDefaultKey) ?? SessionEntry.defaultLateAfterMinutes;
-});
-
-final effectiveThemeModeProvider = Provider<ThemeMode>((ref) {
-  final pref = ref.watch(themePreferenceProvider);
-  return switch (pref) {
-    AppThemePreference.light => ThemeMode.light,
-    AppThemePreference.dark => ThemeMode.dark,
-    AppThemePreference.system => ThemeMode.system,
-  };
-});
-
-final activeThemeSeedProvider = Provider<Color?>((ref) {
-  final activeFlavor = ref.watch(activeFlavorProfileProvider);
-  if (activeFlavor == null || !activeFlavor.enabled) return null;
-  return AppTheme.flavorToneColor(activeFlavor.tone);
 });
 
 final settingsControllerProvider = Provider<SettingsController>(
@@ -89,22 +63,10 @@ class SettingsController {
     await prefs.setDouble(_thresholdKey, value);
   }
 
-  Future<void> setAnimationsEnabled(bool value) async {
-    _ref.read(animationsEnabledProvider.notifier).state = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_animationsKey, value);
-  }
-
   Future<void> setSoundFeedback(bool value) async {
     _ref.read(soundFeedbackProvider.notifier).state = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_soundKey, value);
-  }
-
-  Future<void> setCompactMode(bool value) async {
-    _ref.read(compactModeProvider.notifier).state = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_compactKey, value);
   }
 
   Future<void> setDefaultLateAfter(int minutes) async {
