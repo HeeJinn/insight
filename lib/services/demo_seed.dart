@@ -11,7 +11,7 @@ import 'session_clock.dart';
 /// Debug builds started with `--dart-define=INSIGHT_DEMO=true` fill empty
 /// local storage with sample students, a schedule around the current time
 /// and today's check-ins, so screens can be reviewed without enrolling real
-/// faces. The sample students have no face data and can't be recognized.
+/// faces. Their placeholder face profiles can never be recognized.
 const bool demoSeedEnabled = kDebugMode && bool.fromEnvironment('INSIGHT_DEMO');
 
 final demoSeedProvider = FutureProvider<void>((ref) async {
@@ -56,6 +56,9 @@ final demoSeedProvider = FutureProvider<void>((ref) async {
         expected: 12,
       ),
     );
+  } else {
+    // Reuse whatever session is running, so check-ins attach to it.
+    running = activeSessionAt(ref.read(sessionsProvider), now);
   }
 
   if (students.isEmpty) {
@@ -75,7 +78,17 @@ final demoSeedProvider = FutureProvider<void>((ref) async {
     ];
     for (var i = 0; i < names.length; i++) {
       final id = '2021-${(i + 1).toString().padLeft(4, '0')}';
-      await students.put(id, Student(id: id, name: names[i], embeddings: []));
+      // Identical placeholder profiles: they read as enrolled, but the
+      // recognizer rejects ties, so they can never match a real face. The
+      // last one uses an outdated length to show the re-enroll state.
+      final placeholder = List<double>.filled(
+        i == names.length - 1 ? 128 : 192,
+        0,
+      );
+      await students.put(
+        id,
+        Student(id: id, name: names[i], embeddings: [placeholder]),
+      );
     }
 
     final start = DateTime(

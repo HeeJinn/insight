@@ -111,6 +111,7 @@ class InsightRow extends StatefulWidget {
     this.trailing,
     this.onTap,
     this.showChevron,
+    this.selected = false,
   });
 
   final String title;
@@ -126,6 +127,9 @@ class InsightRow extends StatefulWidget {
 
   /// Defaults to showing a chevron whenever the row is tappable.
   final bool? showChevron;
+
+  /// Marks the row whose detail is showing beside the list.
+  final bool selected;
 
   @override
   State<InsightRow> createState() => _InsightRowState();
@@ -144,7 +148,11 @@ class _InsightRowState extends State<InsightRow> {
     final chevron = widget.showChevron ?? tappable;
 
     final Color background;
-    if (tappable && _pressed) {
+    if (widget.selected) {
+      background = InsightColors.accent
+          .resolveFrom(context)
+          .withValues(alpha: 0.14);
+    } else if (tappable && _pressed) {
       background = CupertinoColors.systemFill.resolveFrom(context);
     } else if (tappable && _hover) {
       background = InsightColors.fill.resolveFrom(context);
@@ -156,63 +164,71 @@ class _InsightRowState extends State<InsightRow> {
       color: background,
       constraints: const BoxConstraints(minHeight: 52),
       padding: const EdgeInsetsDirectional.fromSTEB(16, 10, 14, 10),
-      child: Row(
-        children: [
-          if (widget.leading != null) ...[
-            widget.leading!,
-            const SizedBox(width: 15),
-          ],
-          // The title gets at least 3/5 of the width; a long trailing value
-          // truncates before the title does.
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  widget.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: InsightText.body.copyWith(color: label),
-                ),
-                if (widget.subtitle != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 1),
-                    child: Text(
-                      widget.subtitle!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: InsightText.subheadline.copyWith(color: secondary),
-                    ),
-                  ),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          // The trailing value keeps its natural width up to a cap, so it
+          // sits flush right yet truncates before crowding out the title.
+          final trailingCap = BoxConstraints(maxWidth: c.maxWidth * 0.45);
+          return Row(
+            children: [
+              if (widget.leading != null) ...[
+                widget.leading!,
+                const SizedBox(width: 15),
               ],
-            ),
-          ),
-          if (widget.trailing != null) ...[
-            const SizedBox(width: 8),
-            Flexible(flex: 2, child: widget.trailing!),
-          ] else if (widget.value != null) ...[
-            const SizedBox(width: 8),
-            Flexible(
-              flex: 2,
-              child: Text(
-                widget.value!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-                style: InsightText.body.copyWith(
-                  color: secondary,
-                  fontFeatures: InsightText.tabular,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: InsightText.body.copyWith(color: label),
+                    ),
+                    if (widget.subtitle != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: Text(
+                          widget.subtitle!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: InsightText.subheadline.copyWith(
+                            color: secondary,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ),
-          ],
-          if (chevron) ...[
-            const SizedBox(width: 6),
-            Icon(CupertinoIcons.chevron_forward, size: 17, color: tertiary),
-          ],
-        ],
+              if (widget.trailing != null) ...[
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: trailingCap,
+                  child: widget.trailing!,
+                ),
+              ] else if (widget.value != null) ...[
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: trailingCap,
+                  child: Text(
+                    widget.value!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: InsightText.body.copyWith(
+                      color: secondary,
+                      fontFeatures: InsightText.tabular,
+                    ),
+                  ),
+                ),
+              ],
+              if (chevron) ...[
+                const SizedBox(width: 6),
+                Icon(CupertinoIcons.chevron_forward, size: 17, color: tertiary),
+              ],
+            ],
+          );
+        },
       ),
     );
 

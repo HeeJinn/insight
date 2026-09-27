@@ -29,10 +29,20 @@ class InsightRootPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
+    // Measured, not taken from the window, so the page also works as one
+    // column of a list–detail layout.
+    return LayoutBuilder(
+      builder: (context, constraints) => _build(context, constraints.maxWidth),
+    );
+  }
+
+  Widget _build(BuildContext context, double paneWidth) {
     final sidebar = InsightBreakpoints.usesSidebar(context);
-    final paneWidth = sidebar ? width - AdaptiveShell.sidebarWidth : width;
-    final margin = sidebar ? InsightSpacing.wideMargin : 0.0;
+    final margin = !sidebar
+        ? 0.0
+        : paneWidth >= 700
+        ? InsightSpacing.wideMargin
+        : 8.0;
     final side = paneWidth > maxContentWidth + margin * 2
         ? (paneWidth - maxContentWidth) / 2
         : margin;
@@ -93,11 +103,13 @@ class InsightRootPage extends StatelessWidget {
 }
 
 /// The iOS 26 bar for a pushed screen: a chevron in a glass circle with no
-/// "Back" text, and a centered title.
+/// "Back" text, and a centered title. [modal] screens (opened full screen
+/// over the app) get an xmark instead.
 CupertinoNavigationBar insightPushedBar({
   required String title,
   Widget? trailing,
   VoidCallback? onBack,
+  bool modal = false,
 }) {
   return CupertinoNavigationBar(
     automaticallyImplyLeading: false,
@@ -108,8 +120,8 @@ CupertinoNavigationBar insightPushedBar({
       builder: (context) => Align(
         widthFactor: 1,
         child: GlassIconButton(
-          icon: CupertinoIcons.chevron_back,
-          semanticLabel: 'Back',
+          icon: modal ? CupertinoIcons.xmark : CupertinoIcons.chevron_back,
+          semanticLabel: modal ? 'Close' : 'Back',
           size: 40,
           onPressed: onBack ?? () => Navigator.of(context).maybePop(),
         ),
