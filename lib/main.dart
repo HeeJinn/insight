@@ -7,8 +7,9 @@ import 'providers/settings_provider.dart';
 import 'services/demo_seed.dart';
 import 'ui/insight_ui.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await configureDesktopWindow();
   runApp(const ProviderScope(child: InsightApp()));
 }
 
@@ -40,6 +41,7 @@ class InsightApp extends ConsumerWidget {
         debugShowCheckedModeBanner: false,
         theme: theme,
         home: const CupertinoPageScaffold(child: SizedBox.expand()),
+        builder: (context, child) => DesktopWindowFrame(child: child!),
       );
     }
 
@@ -48,6 +50,8 @@ class InsightApp extends ConsumerWidget {
       title: 'Insight',
       theme: theme,
       routerConfig: ref.watch(routerProvider),
+      // The desktop title bar, drawn by the app; a no-op on phones.
+      builder: (context, child) => DesktopWindowFrame(child: child!),
     );
   }
 }

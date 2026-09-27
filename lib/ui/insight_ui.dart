@@ -12,3 +12,4 @@ export 'widgets/list_section.dart';
 export 'widgets/lottie_hero.dart';
 export 'widgets/page.dart';
 export 'widgets/sheet.dart';
+export 'widgets/window_frame.dart';

@@ -1,5 +1,3 @@
-import 'dart:ui' show AppExitType;
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -148,52 +146,11 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-              // The desktop window is full screen with no close button.
-              if (isDesktopPlatform)
-                InsightListSection(
-                  children: [
-                    CupertinoButton(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      onPressed: () => _confirmQuit(context),
-                      child: Text(
-                        'Quit Insight',
-                        style: InsightText.body.copyWith(
-                          color: InsightColors.danger.resolveFrom(context),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
             ],
           ),
         ),
       ],
     );
-  }
-}
-
-Future<void> _confirmQuit(BuildContext context) async {
-  final quit = await showCupertinoDialog<bool>(
-    context: context,
-    barrierDismissible: true,
-    builder: (context) => CupertinoAlertDialog(
-      title: const Text('Quit Insight?'),
-      content: const Text('Check-ins stop until Insight is opened again.'),
-      actions: [
-        CupertinoDialogAction(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
-        ),
-        CupertinoDialogAction(
-          isDestructiveAction: true,
-          onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Quit'),
-        ),
-      ],
-    ),
-  );
-  if (quit == true) {
-    await ServicesBinding.instance.exitApplication(AppExitType.required);
   }
 }
 
