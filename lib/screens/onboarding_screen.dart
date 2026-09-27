@@ -9,8 +9,8 @@ import '../ui/insight_ui.dart';
 
 enum _Step { welcome, privacy, pin, done }
 
-/// Replaces admin_pin.json's near-black outline: unchanged in light mode,
-/// system gray on a dark page so the phone and figure stay visible.
+/// Replaces the Storyset heroes' near-black outline: unchanged in light
+/// mode, system gray on a dark page so the figures stay visible.
 const _darkModeOutline = CupertinoDynamicColor.withBrightness(
   color: Color(0xFF263238),
   darkColor: Color(0xFF8E8E93),
@@ -115,13 +115,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ),
       _Step.privacy => _Page(
         key: const ValueKey(_Step.privacy),
-        // TODO(asset): a ~160pt Lottie hero here, calm, plays once, same
-        // flat green style as admin_pin.json (LottieFiles: "shield check",
-        // "data privacy lock"). Then swap this for a LottieHero.
-        hero: SymbolBadge(
-          CupertinoIcons.lock_shield_fill,
-          InsightColors.accent.resolveFrom(context),
-          size: 72,
+        // "Privacy policy" (Bro style) by Storyset, storyset.com, converted
+        // from its SVG with a staggered entrance. Freepik License: free
+        // with attribution, credited in Settings → About.
+        hero: const LottieHero(
+          asset: 'assets/animations/privacy.json',
+          fallbackIcon: CupertinoIcons.lock_shield_fill,
+          size: 180,
+          semanticLabel: 'A person beside a padlock and a privacy shield',
+          swapColors: {0xFF263238: _darkModeOutline},
         ),
         title: 'Your Data Stays Here',
         message:
@@ -132,8 +134,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ),
       _Step.pin => _Page(
         key: const ValueKey(_Step.pin),
-        // TODO(credit): source and license of admin_pin.json weren't
-        // recorded when it was added; note its LottieFiles author here.
+        // "Mobile login" (Bro style) by Storyset, storyset.com, converted
+        // from its animated SVG export. Freepik License: free with
+        // attribution, credited in Settings → About.
         hero: const LottieHero(
           asset: 'assets/animations/admin_pin.json',
           fallbackIcon: CupertinoIcons.lock_fill,

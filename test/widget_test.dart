@@ -48,6 +48,7 @@ void main() {
     await tester.tap(find.text('Continue'));
     await settle(tester);
     expect(find.text('Your Data Stays Here'), findsOneWidget);
+    await expectAnimationLoaded(tester, CupertinoIcons.lock_shield_fill);
 
     // Reading the policy and accepting it there also moves setup on.
     await tester.tap(find.text('Read Privacy Policy'));

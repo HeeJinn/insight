@@ -603,6 +603,22 @@ class AboutPage extends ConsumerWidget {
                     InsightRow(title: 'Storage', value: 'Hive, on device'),
                   ],
                 ),
+                // Required by the Storyset (Freepik) and LottieFiles licenses
+                // of the onboarding animations.
+                const InsightListSection(
+                  header: 'Acknowledgements',
+                  dividerInset: 16,
+                  footer:
+                      'Illustrations by Storyset (storyset.com). "Success" '
+                      'animation by Darius Afchar via LottieFiles.',
+                  children: [
+                    InsightRow(title: 'Illustrations', value: 'Storyset'),
+                    InsightRow(
+                      title: 'Success Animation',
+                      value: 'Darius Afchar',
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
