@@ -10,7 +10,7 @@ void main() {
   });
 
   testWidgets('onboarding screen navigates to privacy policy without resetting', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: MyApp()));
+    await tester.pumpWidget(const ProviderScope(child: InsightApp()));
     await tester.pump(const Duration(milliseconds: 800));
 
     // Verify initial onboarding screen is displayed
