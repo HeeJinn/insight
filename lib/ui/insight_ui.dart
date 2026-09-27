@@ -7,6 +7,7 @@ export 'theme.dart';
 export 'widgets/adaptive_shell.dart';
 export 'widgets/basics.dart';
 export 'widgets/charts.dart';
+export 'widgets/glass_tab_bar.dart';
 export 'widgets/list_section.dart';
 export 'widgets/lottie_hero.dart';
 export 'widgets/page.dart';

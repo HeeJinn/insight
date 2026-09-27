@@ -77,8 +77,8 @@ class TestData {
   }
 }
 
-class _FixedSessions extends SessionsController {
-  _FixedSessions(List<SessionEntry> sessions) {
+class FixedSessions extends SessionsController {
+  FixedSessions(List<SessionEntry> sessions) {
     state = sessions;
   }
 
@@ -102,7 +102,7 @@ Future<void> pumpScreen(
       overrides: [
         studentsBoxProvider.overrideWith((ref) async => data.students),
         attendanceBoxProvider.overrideWith((ref) async => data.attendance),
-        sessionsProvider.overrideWith((ref) => _FixedSessions(data.sessions)),
+        sessionsProvider.overrideWith((ref) => FixedSessions(data.sessions)),
       ],
       child: CupertinoApp(theme: insightCupertinoTheme(), home: home),
     ),

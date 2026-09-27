@@ -102,11 +102,8 @@ class _DetailBody extends StatelessWidget {
         0,
         topPadding + 24,
         0,
-        // Clear the floating tab bar when pushed inside a phone tab.
-        (InsightBreakpoints.usesSidebar(context)
-                ? MediaQuery.paddingOf(context).bottom
-                : AdaptiveShell.bottomInset(context)) +
-            32,
+        // On phones the bottom padding includes the floating tab bar.
+        MediaQuery.paddingOf(context).bottom + 32,
       ),
       children: [
         Center(

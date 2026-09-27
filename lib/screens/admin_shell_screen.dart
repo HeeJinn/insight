@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/admin_lock_provider.dart';
+import '../providers/router_provider.dart';
 import '../ui/insight_ui.dart';
 
 /// Frames the admin sections: sidebar on wide windows, floating tab bar on
@@ -48,11 +49,16 @@ class AdminShellScreen extends ConsumerWidget {
   ];
 
   void _select(int index) {
-    // Tapping the current section again pops it back to its root.
-    navigationShell.goBranch(
-      index,
-      initialLocation: index == navigationShell.currentIndex,
-    );
+    final again = index == navigationShell.currentIndex;
+    // Tapping the current section again returns it to its first screen.
+    // Details pushed straight onto the section's navigator (a student, a
+    // sheet's route) aren't go_router routes, so pop those explicitly too.
+    if (again) {
+      branchNavigatorKeys[index].currentState?.popUntil(
+        (route) => route.isFirst,
+      );
+    }
+    navigationShell.goBranch(index, initialLocation: again);
   }
 
   @override
@@ -84,7 +90,14 @@ class AdminShellScreen extends ConsumerWidget {
               children: [
                 Icon(CupertinoIcons.viewfinder, size: 18),
                 SizedBox(width: 8),
-                Text('Start Kiosk'),
+                // Truncates rather than overflows at large text sizes.
+                Flexible(
+                  child: Text(
+                    'Start Kiosk',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
           ),

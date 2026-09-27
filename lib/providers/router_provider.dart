@@ -24,6 +24,16 @@ final sessionsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'sessions');
 final reportsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'reports');
 final settingsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'settings');
 
+/// Each admin section's navigator, in branch order.
+final branchNavigatorKeys = [
+  todayNavigatorKey,
+  attendanceNavigatorKey,
+  studentsNavigatorKey,
+  sessionsNavigatorKey,
+  reportsNavigatorKey,
+  settingsNavigatorKey,
+];
+
 /// Where the app lands once onboarding is done: the kiosk on the Mac or PC
 /// at the door, the admin area on phones and tablets.
 String get homeLocation => isDesktopPlatform ? '/kiosk' : '/admin/today';

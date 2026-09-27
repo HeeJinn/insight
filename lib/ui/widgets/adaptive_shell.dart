@@ -2,7 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import '../liquid_glass.dart';
+import 'glass_tab_bar.dart';
 import '../theme.dart';
 
 class ShellDestination {
@@ -44,17 +44,66 @@ class AdaptiveShell extends StatelessWidget {
   final Widget? sidebarFooter;
 
   static const double sidebarWidth = 248;
-  static const double _tabBarHeight = 62;
 
-  /// Space a root screen must leave at its bottom so the last row scrolls
-  /// clear of the floating tab bar and the home indicator.
-  static double bottomInset(BuildContext context) {
-    if (InsightBreakpoints.usesSidebar(context)) return 0;
-    return _tabBarHeight + 12 + MediaQuery.paddingOf(context).bottom;
-  }
+  /// The glass bar stops widening here, so it stays a capsule on tablets
+  /// in portrait rather than a strip across the screen.
+  static const double _tabBarMaxWidth = 520;
 
   bool get _usesCommandKey =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+
+  /// The phone layout: sections full-height, the glass tab bar floating over
+  /// them. The bar's height and gap are added to the bottom safe-area
+  /// padding, so any screen that respects `MediaQuery.padding.bottom`
+  /// scrolls its last row clear of the bar with no per-screen numbers.
+  Widget _withTabBar(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final tabIndexes = [
+      for (var i = 0; i < destinations.length; i++)
+        if (destinations[i].inTabBar) i,
+    ];
+    // Destinations outside the bar (Settings, opened from Today) keep the
+    // tab they were reached from highlighted.
+    final selected = tabIndexes.indexOf(currentIndex);
+
+    return Stack(
+      children: [
+        MediaQuery(
+          data: media.copyWith(
+            padding: media.padding.copyWith(
+              bottom:
+                  media.padding.bottom +
+                  GlassTabBar.height +
+                  GlassTabBar.bottomGap,
+            ),
+          ),
+          child: child,
+        ),
+        Positioned(
+          left: GlassTabBar.sideInset,
+          right: GlassTabBar.sideInset,
+          bottom: media.padding.bottom + GlassTabBar.bottomGap,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: _tabBarMaxWidth),
+              child: GlassTabBar(
+                tabs: [
+                  for (final i in tabIndexes)
+                    GlassTab(
+                      label: destinations[i].label,
+                      icon: destinations[i].icon,
+                      activeIcon: destinations[i].selectedIcon,
+                    ),
+                ],
+                currentIndex: selected < 0 ? 0 : selected,
+                onTap: (i) => onSelect(tabIndexes[i]),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,19 +136,7 @@ class AdaptiveShell extends StatelessWidget {
               Expanded(child: child),
             ],
           )
-        : Stack(
-            children: [
-              Positioned.fill(child: child),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: _FloatingTabBar(
-                  destinations: destinations,
-                  currentIndex: currentIndex,
-                  onSelect: onSelect,
-                ),
-              ),
-            ],
-          );
+        : _withTabBar(context);
 
     return CallbackShortcuts(
       bindings: shortcuts,
@@ -250,86 +287,6 @@ class _SidebarItemState extends State<_SidebarItem> {
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FloatingTabBar extends StatelessWidget {
-  const _FloatingTabBar({
-    required this.destinations,
-    required this.currentIndex,
-    required this.onSelect,
-  });
-
-  final List<ShellDestination> destinations;
-  final int currentIndex;
-  final ValueChanged<int> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = InsightColors.accent.resolveFrom(context);
-    final muted = InsightColors.secondaryLabel.resolveFrom(context);
-    final items = [
-      for (var i = 0; i < destinations.length; i++)
-        if (destinations[i].inTabBar) i,
-    ];
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        0,
-        20,
-        MediaQuery.paddingOf(context).bottom + 8,
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: LiquidGlass(
-          child: SizedBox(
-            height: AdaptiveShell._tabBarHeight,
-            child: Row(
-              children: [
-                for (final i in items)
-                  Expanded(
-                    child: Semantics(
-                      selected: i == currentIndex,
-                      button: true,
-                      label: destinations[i].label,
-                      excludeSemantics: true,
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          onSelect(i);
-                        },
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              destinations[i].selectedIcon,
-                              size: 24,
-                              color: i == currentIndex ? accent : muted,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              destinations[i].label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: InsightText.caption2.copyWith(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: i == currentIndex ? accent : muted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),

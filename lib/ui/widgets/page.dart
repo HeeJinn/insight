@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 
 import '../liquid_glass.dart';
 import '../theme.dart';
-import 'adaptive_shell.dart';
 
 /// A root admin screen: a left-aligned large title that collapses on
 /// scroll, optional search beneath it, and content kept to a readable
@@ -94,7 +93,8 @@ class InsightRootPage extends StatelessWidget {
               sliver: sliver,
             ),
           SliverToBoxAdapter(
-            child: SizedBox(height: AdaptiveShell.bottomInset(context) + 24),
+            // Includes the floating tab bar on phones (see AdaptiveShell).
+            child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 24),
           ),
         ],
       ),
