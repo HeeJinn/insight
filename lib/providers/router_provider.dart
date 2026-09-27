@@ -6,7 +6,7 @@ import '../providers/admin_lock_provider.dart';
 import '../providers/app_state_provider.dart';
 import '../screens/admin_shell_screen.dart';
 import '../screens/today_screen.dart';
-import '../screens/insight_logs_screen.dart';
+import '../screens/attendance_screen.dart';
 import '../screens/insights_screen.dart';
 import '../screens/kiosk_screen.dart';
 import '../screens/onboarding_screen.dart';
@@ -98,7 +98,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             navigatorKey: attendanceNavigatorKey,
             routes: [
-              section('/admin/attendance', const InsightLogsScreen()),
+              section('/admin/attendance', const AttendanceScreen()),
             ],
           ),
           StatefulShellBranch(
