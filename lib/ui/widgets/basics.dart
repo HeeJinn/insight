@@ -465,7 +465,6 @@ class StatTile extends StatelessWidget {
             maxLines: 1,
             style: InsightText.title1.copyWith(
               color: InsightColors.label.resolveFrom(context),
-              fontFeatures: InsightText.tabular,
             ),
           ),
           Text(

@@ -7,7 +7,7 @@ import '../providers/app_state_provider.dart';
 import '../screens/admin_shell_screen.dart';
 import '../screens/today_screen.dart';
 import '../screens/attendance_screen.dart';
-import '../screens/insights_screen.dart';
+import '../screens/reports_screen.dart';
 import '../screens/kiosk_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/privacy_policy_screen.dart';
@@ -111,7 +111,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             navigatorKey: reportsNavigatorKey,
-            routes: [section('/admin/reports', const InsightsScreen())],
+            routes: [section('/admin/reports', const ReportsScreen())],
           ),
           StatefulShellBranch(
             navigatorKey: settingsNavigatorKey,

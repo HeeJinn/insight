@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -108,6 +110,37 @@ final demoSeedProvider = FutureProvider<void>((ref) async {
           latencyMs: 280 + i * 37,
         ),
       );
+    }
+
+    // Three weeks of weekday history for the trend charts: most students
+    // most days, a few habitually late or absent. Seeded, so it is the
+    // same every run.
+    final history = running ?? ref.read(sessionsProvider).firstOrNull;
+    if (history != null) {
+      final random = Random(42);
+      final today = DateTime(now.year, now.month, now.day);
+      for (var back = 1; back <= 21; back++) {
+        final day = today.subtract(Duration(days: back));
+        if (day.weekday > 5) continue;
+        for (var i = 0; i < names.length; i++) {
+          // Later students attend less often, to give Follow-up a shape.
+          if (random.nextDouble() > 0.95 - i * 0.04) continue;
+          final lateness = i % 4 == 3
+              ? 12 + random.nextInt(20)
+              : random.nextInt(14) - 4;
+          await attendance.add(
+            Attendance(
+              studentId: '2021-${(i + 1).toString().padLeft(4, '0')}',
+              timestamp: day.add(
+                Duration(minutes: history.startMinuteOfDay + lateness),
+              ),
+              sessionTitle: history.title,
+              room: history.room,
+              latencyMs: 260 + random.nextInt(220) - back * 3,
+            ),
+          );
+        }
+      }
     }
   }
 });
