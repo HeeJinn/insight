@@ -66,14 +66,7 @@ dependencies:
   # Permissions
   permission_handler: ^11.3.1
   shared_preferences: ^2.5.5
-  lottie: ^3.3.2
   share_plus: ^13.1.0
-  flutter_animate: ^4.5.2
-  shimmer: ^4.0.0
-  flutter_svg: ^2.3.0
-  freezed_annotation: ^3.1.0
-  json_annotation: ^4.12.0
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -97,15 +90,13 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
-  uses-material-design: true
+  # The UI uses CupertinoIcons only, so the Material Icons font isn't
+  # bundled.
+  uses-material-design: false
 
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/models/
-    - assets/animations/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
