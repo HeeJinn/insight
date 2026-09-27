@@ -245,11 +245,15 @@ class StatusPill extends StatelessWidget {
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
           ],
-          Text(
-            label,
-            style: InsightText.footnote.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: InsightText.footnote.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -327,6 +331,150 @@ class InitialsAvatar extends StatelessWidget {
           fontSize: size * 0.38,
           letterSpacing: 0,
         ),
+      ),
+    );
+  }
+}
+
+/// A Fitness-style progress ring with an optional label in the middle.
+class ProgressRing extends StatelessWidget {
+  const ProgressRing({
+    super.key,
+    required this.progress,
+    required this.color,
+    this.size = 96,
+    this.strokeWidth = 11,
+    this.child,
+  });
+
+  /// 0–1.
+  final double progress;
+  final Color color;
+  final double size;
+  final double strokeWidth;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return SizedBox.square(
+      dimension: size,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(end: progress.clamp(0.0, 1.0)),
+        duration: reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 700),
+        curve: Curves.easeOutCubic,
+        builder: (context, value, child) => CustomPaint(
+          painter: _RingPainter(
+            progress: value,
+            color: color,
+            track: color.withValues(alpha: 0.18),
+            strokeWidth: strokeWidth,
+          ),
+          child: Center(child: child),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  _RingPainter({
+    required this.progress,
+    required this.color,
+    required this.track,
+    required this.strokeWidth,
+  });
+
+  final double progress;
+  final Color color;
+  final Color track;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = (Offset.zero & size).deflate(strokeWidth / 2);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect, 0, 6.2832, false, paint..color = track);
+    if (progress > 0) {
+      canvas.drawArc(
+        rect,
+        -1.5708,
+        6.2832 * progress,
+        false,
+        paint..color = color,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) =>
+      old.progress != progress || old.color != color;
+}
+
+/// A dashboard figure: a tinted symbol, a large number, and its label.
+class StatTile extends StatelessWidget {
+  const StatTile({
+    super.key,
+    required this.icon,
+    required this.color,
+    required this.value,
+    required this.label,
+    this.detail,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String value;
+  final String label;
+  final String? detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final secondary = InsightColors.secondaryLabel.resolveFrom(context);
+    return InsightCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 17, color: color),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: InsightText.subheadline.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            maxLines: 1,
+            style: InsightText.title1.copyWith(
+              color: InsightColors.label.resolveFrom(context),
+              fontFeatures: InsightText.tabular,
+            ),
+          ),
+          Text(
+            detail ?? '',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: InsightText.footnote.copyWith(color: secondary),
+          ),
+        ],
       ),
     );
   }

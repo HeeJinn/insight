@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/admin_lock_provider.dart';
 import '../providers/app_state_provider.dart';
 import '../screens/admin_shell_screen.dart';
-import '../screens/home_screen.dart';
+import '../screens/today_screen.dart';
 import '../screens/insight_logs_screen.dart';
 import '../screens/insights_screen.dart';
 import '../screens/kiosk_screen.dart';
@@ -93,7 +93,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         branches: [
           StatefulShellBranch(
             navigatorKey: todayNavigatorKey,
-            routes: [section('/admin/today', const HomeScreen())],
+            routes: [section('/admin/today', const TodayScreen())],
           ),
           StatefulShellBranch(
             navigatorKey: attendanceNavigatorKey,

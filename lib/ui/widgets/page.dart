@@ -52,10 +52,30 @@ class InsightRootPage extends StatelessWidget {
             border: null,
           );
 
+    // The sliver bar drops its large title in landscape, as an iPhone does
+    // on its side. Desktop and tablet windows are landscape too but have
+    // room for it, so present the bar as portrait there. Its safe-area
+    // padding also carries the page's side margin, so the title lines up
+    // with the content below.
+    final mq = MediaQuery.of(context);
+    final keepLargeTitle = mq.size.shortestSide >= 600;
+    final bar = MediaQuery(
+      data: mq.copyWith(
+        size: keepLargeTitle && mq.orientation == Orientation.landscape
+            ? Size(mq.size.width, mq.size.width + 1)
+            : mq.size,
+        padding: mq.padding.copyWith(
+          left: mq.padding.left + side,
+          right: mq.padding.right + side,
+        ),
+      ),
+      child: navBar,
+    );
+
     return CupertinoPageScaffold(
       child: CustomScrollView(
         slivers: [
-          navBar,
+          bar,
           if (onRefresh != null)
             CupertinoSliverRefreshControl(onRefresh: onRefresh),
           for (final sliver in slivers)

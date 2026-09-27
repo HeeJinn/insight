@@ -12,6 +12,7 @@ import 'providers/admin_lock_provider.dart';
 import 'providers/app_state_provider.dart';
 import 'providers/router_provider.dart';
 import 'providers/settings_provider.dart';
+import 'services/demo_seed.dart';
 import 'ui/insight_ui.dart';
 
 void main() {
@@ -24,11 +25,12 @@ class InsightApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch all three before combining, so they load in parallel.
+    // Watch every bootstrap before combining, so they load in parallel.
     final bootstraps = [
       ref.watch(settingsBootstrapProvider),
       ref.watch(appStateBootstrapProvider),
       ref.watch(adminLockBootstrapProvider),
+      if (demoSeedEnabled) ref.watch(demoSeedProvider),
     ];
     final ready = bootstraps.every((b) => !b.isLoading);
 
@@ -78,7 +80,9 @@ class _MaterialBridge extends ConsumerWidget {
     final dark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
     final seed = ref.watch(activeThemeSeedProvider);
     return Theme(
-      data: dark ? AppTheme.dark(seedColor: seed) : AppTheme.light(seedColor: seed),
+      data: dark
+          ? AppTheme.dark(seedColor: seed)
+          : AppTheme.light(seedColor: seed),
       child: ScaffoldMessenger(
         child: Material(type: MaterialType.transparency, child: child),
       ),
