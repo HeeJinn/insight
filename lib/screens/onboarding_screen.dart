@@ -9,6 +9,13 @@ import '../ui/insight_ui.dart';
 
 enum _Step { welcome, privacy, pin, done }
 
+/// Replaces admin_pin.json's near-black outline: unchanged in light mode,
+/// system gray on a dark page so the phone and figure stay visible.
+const _darkModeOutline = CupertinoDynamicColor.withBrightness(
+  color: Color(0xFF263238),
+  darkColor: Color(0xFF8E8E93),
+);
+
 /// First-run setup, like Apple's setup assistant: what Insight does, the
 /// privacy agreement, the admin PIN, and where to go next.
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -50,7 +57,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   void _clearPinError() => setState(() => _pinError = null);
 
   void _go(_Step step) {
-    HapticFeedback.selectionClick();
+    // A firmer tap for the success screen, a light one between steps.
+    if (step == _Step.done) {
+      HapticFeedback.mediumImpact();
+    } else {
+      HapticFeedback.selectionClick();
+    }
     setState(() {
       _forward = step.index > _step.index;
       _step = step;
@@ -93,6 +105,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final Widget body = switch (_step) {
       _Step.welcome => _Page(
         key: const ValueKey(_Step.welcome),
+        // The app mark, as Apple's own welcome screens use, rather than an
+        // off-topic illustration.
         hero: const _AppMark(),
         title: 'Welcome to Insight',
         message: 'Attendance by face, right at the classroom door.',
@@ -101,6 +115,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ),
       _Step.privacy => _Page(
         key: const ValueKey(_Step.privacy),
+        // TODO(asset): a ~160pt Lottie hero here, calm, plays once, same
+        // flat green style as admin_pin.json (LottieFiles: "shield check",
+        // "data privacy lock"). Then swap this for a LottieHero.
         hero: SymbolBadge(
           CupertinoIcons.lock_shield_fill,
           InsightColors.accent.resolveFrom(context),
@@ -115,10 +132,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ),
       _Step.pin => _Page(
         key: const ValueKey(_Step.pin),
-        hero: SymbolBadge(
-          CupertinoIcons.lock_fill,
-          CupertinoColors.systemGrey.resolveFrom(context),
-          size: 72,
+        // TODO(credit): source and license of admin_pin.json weren't
+        // recorded when it was added; note its LottieFiles author here.
+        hero: const LottieHero(
+          asset: 'assets/animations/admin_pin.json',
+          fallbackIcon: CupertinoIcons.lock_fill,
+          size: 180,
+          semanticLabel: 'A person entering a PIN on a phone',
+          // The file's near-black outlines vanish on a dark page; lighten
+          // them there only.
+          swapColors: {0xFF263238: _darkModeOutline},
         ),
         title: 'Create an Admin PIN',
         message: _pinRequired
@@ -142,10 +165,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ),
       _Step.done => _Page(
         key: const ValueKey(_Step.done),
-        hero: Icon(
-          CupertinoIcons.checkmark_circle_fill,
-          size: 80,
-          color: InsightColors.success.resolveFrom(context),
+        // "Success" by Darius Afchar, via LottieFiles (Lottie Simple License).
+        hero: const LottieHero(
+          asset: 'assets/animations/setup_complete.json',
+          fallbackIcon: CupertinoIcons.checkmark_circle_fill,
+          size: 120,
+          semanticLabel: 'Setup complete',
         ),
         title: "You're All Set",
         message: 'Three things get the kiosk ready:',

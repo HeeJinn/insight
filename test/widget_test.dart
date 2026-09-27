@@ -5,6 +5,7 @@ import 'package:insight/main.dart';
 import 'package:insight/providers/admin_lock_provider.dart';
 import 'package:insight/providers/app_state_provider.dart';
 import 'package:insight/screens/onboarding_screen.dart';
+import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -15,6 +16,22 @@ void main() {
   Future<void> settle(WidgetTester tester) async {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
+  }
+
+  /// The step's Lottie hero loaded its file instead of falling back to
+  /// [fallback]. Asset loading is real I/O, so it runs on the real clock.
+  Future<void> expectAnimationLoaded(
+    WidgetTester tester,
+    IconData fallback,
+  ) async {
+    for (var i = 0; i < 10 && find.byType(RawLottie).evaluate().isEmpty; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump();
+    }
+    expect(find.byType(RawLottie), findsOneWidget);
+    expect(find.byIcon(fallback), findsNothing);
   }
 
   testWidgets('onboarding walks through privacy and PIN setup', (tester) async {
@@ -39,6 +56,7 @@ void main() {
     await tester.tap(find.text('Accept & Return'));
     await settle(tester);
     expect(find.text('Create an Admin PIN'), findsOneWidget);
+    await expectAnimationLoaded(tester, CupertinoIcons.lock_fill);
 
     final fields = find.byType(CupertinoTextField);
     await tester.enterText(fields.at(0), '1234');
@@ -53,6 +71,7 @@ void main() {
     await tester.tap(find.text('Continue'));
     await settle(tester);
     expect(find.text("You're All Set"), findsOneWidget);
+    await expectAnimationLoaded(tester, CupertinoIcons.checkmark_circle_fill);
 
     final container = ProviderScope.containerOf(
       tester.element(find.byType(OnboardingScreen)),
