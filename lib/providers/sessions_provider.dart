@@ -35,6 +35,15 @@ class SessionsController extends StateNotifier<List<SessionEntry>> {
     await _persist(next);
   }
 
+  /// Replaces the session with the same id.
+  Future<void> updateSession(SessionEntry session) async {
+    final next = [
+      for (final s in state) s.id == session.id ? session : s,
+    ]..sort((a, b) => a.startMinuteOfDay.compareTo(b.startMinuteOfDay));
+    state = next;
+    await _persist(next);
+  }
+
   Future<void> removeSession(String id) async {
     final next = state.where((s) => s.id != id).toList(growable: false);
     state = next;

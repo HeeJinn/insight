@@ -13,7 +13,9 @@ import '../providers/sessions_provider.dart';
 import '../services/session_clock.dart';
 import '../services/today_summary.dart';
 import '../ui/insight_ui.dart';
+import '../widgets/session_badge.dart';
 import 'admin_shell_screen.dart';
+import 'session_editor.dart';
 
 /// The admin's home: what's happening right now, today's numbers, who is
 /// missing, and the day's schedule. Modeled on Health's Summary.
@@ -209,18 +211,14 @@ class _TodayContent extends StatelessWidget {
 }
 
 /// The hero: the running session with its headcount ring, or what's next.
-class _NowCard extends ConsumerWidget {
+class _NowCard extends StatelessWidget {
   const _NowCard({required this.summary, required this.hasSchedule});
 
   final TodaySummary summary;
   final bool hasSchedule;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final label = InsightColors.label.resolveFrom(context);
-    final secondary = InsightColors.secondaryLabel.resolveFrom(context);
-    final success = InsightColors.success.resolveFrom(context);
-    final accent = InsightColors.accent.resolveFrom(context);
+  Widget build(BuildContext context) {
     final active = summary.active;
     final sidebar = InsightBreakpoints.usesSidebar(context);
 
@@ -229,49 +227,104 @@ class _NowCard extends ConsumerWidget {
       final next = summary.next;
       return InsightCard(
         padding: const EdgeInsets.all(20),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SymbolBadge(
-              next == null
-                  ? CupertinoIcons.moon_fill
-                  : CupertinoIcons.clock_fill,
-              next == null
-                  ? CupertinoColors.systemIndigo.resolveFrom(context)
-                  : accent,
-              size: 44,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    next == null ? 'Done for Today' : 'Up Next',
-                    style: InsightText.footnote.copyWith(
-                      color: secondary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    next?.title ?? 'No more sessions today',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: InsightText.title3.copyWith(color: label),
-                  ),
-                  if (next != null)
-                    Text(
-                      '${_startsIn(next, summary.now)} · ${formatSessionRange(next)}',
-                      style: InsightText.subheadline.copyWith(color: secondary),
-                    ),
-                ],
+            _UpNextRow(next: next, now: summary.now),
+            const SizedBox(height: 16),
+            // For a class meeting outside the weekly schedule.
+            CupertinoButton.tinted(
+              sizeStyle: CupertinoButtonSize.medium,
+              borderRadius: BorderRadius.circular(InsightRadii.capsule),
+              onPressed: () => showSessionEditor(
+                context,
+                draft: draftSessionNow(DateTime.now()),
               ),
+              child: const Text('Start a Session Now'),
             ),
           ],
         ),
       );
     }
 
+    return _LiveCard(summary: summary, sidebar: sidebar);
+  }
+}
+
+class _UpNextRow extends StatelessWidget {
+  const _UpNextRow({required this.next, required this.now});
+
+  final SessionEntry? next;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = InsightColors.label.resolveFrom(context);
+    final secondary = InsightColors.secondaryLabel.resolveFrom(context);
+    final accent = InsightColors.accent.resolveFrom(context);
+    final next = this.next;
+    return Row(
+      children: [
+        SymbolBadge(
+          next == null ? CupertinoIcons.moon_fill : CupertinoIcons.clock_fill,
+          next == null
+              ? CupertinoColors.systemIndigo.resolveFrom(context)
+              : accent,
+          size: 44,
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                next == null ? 'Done for Today' : 'Up Next',
+                style: InsightText.footnote.copyWith(
+                  color: secondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                next?.title ?? 'No more sessions today',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: InsightText.title3.copyWith(color: label),
+              ),
+              if (next != null)
+                Text(
+                  '${_startsIn(next, now)} · ${formatSessionRange(next)}',
+                  style: InsightText.subheadline.copyWith(color: secondary),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _startsIn(SessionEntry s, DateTime now) {
+    final minutes = s.startMinuteOfDay - minuteOfDay(now);
+    if (minutes < 60) return 'Starts in $minutes min';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    return m == 0 ? 'Starts in $h hr' : 'Starts in $h hr $m min';
+  }
+}
+
+/// The running session (or today's general check-ins) with its headcount.
+class _LiveCard extends ConsumerWidget {
+  const _LiveCard({required this.summary, required this.sidebar});
+
+  final TodaySummary summary;
+  final bool sidebar;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final label = InsightColors.label.resolveFrom(context);
+    final secondary = InsightColors.secondaryLabel.resolveFrom(context);
+    final success = InsightColors.success.resolveFrom(context);
+    final active = summary.active;
     final present = summary.presentNow;
     final expected = summary.expectedNow;
     final fraction = expected == 0 ? 0.0 : present / expected;
@@ -379,14 +432,6 @@ class _NowCard extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  static String _startsIn(SessionEntry s, DateTime now) {
-    final minutes = s.startMinuteOfDay - minuteOfDay(now);
-    if (minutes < 60) return 'Starts in $minutes min';
-    final h = minutes ~/ 60;
-    final m = minutes % 60;
-    return m == 0 ? 'Starts in $h hr' : 'Starts in $h hr $m min';
   }
 }
 
@@ -642,8 +687,6 @@ class _ScheduleSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final minute = minuteOfDay(now);
-
     if (sessions.isEmpty) {
       return InsightListSection(
         header: 'Schedule',
@@ -663,37 +706,26 @@ class _ScheduleSection extends StatelessWidget {
       );
     }
 
+    final todays = sessionsOn(sessions, now);
     return InsightListSection(
       header: 'Schedule',
-      children: [
-        for (final s in sessions)
-          InsightRow(
-            leading: _stateBadge(context, s, minute),
-            title: s.title,
-            subtitle: s.room.isEmpty ? null : s.room,
-            value: formatSessionRange(s),
-            onTap: () => context.go('/admin/sessions'),
-          ),
-      ],
-    );
-  }
-
-  Widget _stateBadge(BuildContext context, SessionEntry s, int minute) {
-    if (minute > s.endMinuteOfDay) {
-      return SymbolBadge(
-        CupertinoIcons.checkmark_alt,
-        CupertinoColors.systemGrey.resolveFrom(context),
-      );
-    }
-    if (minute >= s.startMinuteOfDay) {
-      return SymbolBadge(
-        CupertinoIcons.dot_radiowaves_left_right,
-        InsightColors.success.resolveFrom(context),
-      );
-    }
-    return SymbolBadge(
-      CupertinoIcons.clock_fill,
-      InsightColors.accent.resolveFrom(context),
+      children: todays.isEmpty
+          ? [
+              InsightRow(
+                title: 'No sessions today',
+                onTap: () => context.go('/admin/sessions'),
+              ),
+            ]
+          : [
+              for (final s in todays)
+                InsightRow(
+                  leading: SessionStateBadge(session: s, now: now),
+                  title: s.title,
+                  subtitle: s.room.isEmpty ? null : s.room,
+                  value: formatSessionRange(s),
+                  onTap: () => context.go('/admin/sessions'),
+                ),
+            ],
     );
   }
 }

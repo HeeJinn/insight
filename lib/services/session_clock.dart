@@ -1,35 +1,43 @@
 import '../models/session_entry.dart';
 
-/// How long after a session starts a check-in still counts as on time.
-const Duration lateGracePeriod = Duration(minutes: 15);
-
 int minuteOfDay(DateTime time) => time.hour * 60 + time.minute;
 
-/// The session running at [now], if any.
+/// Sessions that meet on [day], earliest first. One-offs sort ahead of
+/// recurring sessions at the same time, since they override the schedule.
+List<SessionEntry> sessionsOn(List<SessionEntry> sessions, DateTime day) {
+  return sessions.where((s) => s.occursOn(day)).toList()..sort((a, b) {
+    final byStart = a.startMinuteOfDay.compareTo(b.startMinuteOfDay);
+    if (byStart != 0) return byStart;
+    return (a.isOneOff ? 0 : 1).compareTo(b.isOneOff ? 0 : 1);
+  });
+}
+
+/// The session running at [now], if any. A one-off running at the same
+/// time as a recurring session takes precedence.
 SessionEntry? activeSessionAt(List<SessionEntry> sessions, DateTime now) {
   final minute = minuteOfDay(now);
-  for (final s in sessions) {
-    if (minute >= s.startMinuteOfDay && minute <= s.endMinuteOfDay) return s;
+  SessionEntry? found;
+  for (final s in sessionsOn(sessions, now)) {
+    if (minute >= s.startMinuteOfDay && minute <= s.endMinuteOfDay) {
+      if (s.isOneOff) return s;
+      found ??= s;
+    }
   }
-  return null;
+  return found;
 }
 
 /// The next session later today, if any.
 SessionEntry? nextSessionAfter(List<SessionEntry> sessions, DateTime now) {
   final minute = minuteOfDay(now);
-  SessionEntry? next;
-  for (final s in sessions) {
-    if (s.startMinuteOfDay > minute &&
-        (next == null || s.startMinuteOfDay < next.startMinuteOfDay)) {
-      next = s;
-    }
+  for (final s in sessionsOn(sessions, now)) {
+    if (s.startMinuteOfDay > minute) return s;
   }
-  return next;
+  return null;
 }
 
-/// Whether a check-in at [time] is past [session]'s grace period.
+/// Whether a check-in at [time] is past [session]'s late cutoff.
 bool isLateFor(SessionEntry session, DateTime time) =>
-    minuteOfDay(time) > session.startMinuteOfDay + lateGracePeriod.inMinutes;
+    minuteOfDay(time) > session.startMinuteOfDay + session.lateAfterMinutes;
 
 bool isSameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
@@ -53,4 +61,45 @@ String formatSessionRange(SessionEntry s) {
   return samePeriod
       ? '${start.substring(0, start.length - 3)} – $end'
       : '$start – $end';
+}
+
+const _dayShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const _monthShort = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+/// "Every day", "Weekdays", "Weekends", or "Mon, Wed, Fri".
+String formatWeekdays(Set<int> days) {
+  if (days.length == 7) return 'Every day';
+  if (days.length == 5 && days.containsAll({1, 2, 3, 4, 5})) return 'Weekdays';
+  if (days.length == 2 && days.containsAll({6, 7})) return 'Weekends';
+  final sorted = days.toList()..sort();
+  return sorted.map((d) => _dayShort[d - 1]).join(', ');
+}
+
+/// "Mon, Sep 28", with the year when it isn't [now]'s.
+String formatShortDate(DateTime date, DateTime now) {
+  final base =
+      '${_dayShort[date.weekday - 1]}, ${_monthShort[date.month - 1]} ${date.day}';
+  return date.year == now.year ? base : '$base, ${date.year}';
+}
+
+/// When [session] meets: "Mon, Wed, Fri" or "Today" / "Mon, Sep 28".
+String formatRecurrence(SessionEntry session, DateTime now) {
+  final d = session.date;
+  if (d == null) return formatWeekdays(session.weekdays);
+  if (isSameDay(d, now)) return 'Today';
+  if (isSameDay(d, now.add(const Duration(days: 1)))) return 'Tomorrow';
+  return formatShortDate(d, now);
 }
