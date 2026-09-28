@@ -1,40 +1,57 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'app_theme.dart';
+import 'providers/admin_lock_provider.dart';
 import 'providers/app_state_provider.dart';
 import 'providers/router_provider.dart';
 import 'providers/settings_provider.dart';
+import 'services/demo_seed.dart';
+import 'ui/insight_ui.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: MyApp()));
+  await configureDesktopWindow();
+  runApp(const ProviderScope(child: InsightApp()));
 }
 
-class MyApp extends ConsumerWidget {
-  const MyApp({super.key});
+class InsightApp extends ConsumerWidget {
+  const InsightApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(routerProvider);
-    final settingsBootstrap = ref.watch(settingsBootstrapProvider);
-    final appBootstrap = ref.watch(appStateBootstrapProvider);
-    final themeMode = ref.watch(effectiveThemeModeProvider);
-    final themeSeed = ref.watch(activeThemeSeedProvider);
+    // Watch every bootstrap before combining, so they load in parallel.
+    final bootstraps = [
+      ref.watch(settingsBootstrapProvider),
+      ref.watch(appStateBootstrapProvider),
+      ref.watch(adminLockBootstrapProvider),
+      if (demoSeedEnabled) ref.watch(demoSeedProvider),
+    ];
+    final ready = bootstraps.every((b) => !b.isLoading);
 
-    if (settingsBootstrap.isLoading || appBootstrap.isLoading) {
-      return const MaterialApp(
+    final brightness = switch (ref.watch(themePreferenceProvider)) {
+      AppThemePreference.light => Brightness.light,
+      AppThemePreference.dark => Brightness.dark,
+      AppThemePreference.system => null,
+    };
+    final theme = insightCupertinoTheme(brightness: brightness);
+
+    if (!ready) {
+      // Preferences load from local storage in a few milliseconds; show the
+      // plain page rather than a spinner.
+      return CupertinoApp(
         debugShowCheckedModeBanner: false,
-        home: Scaffold(body: Center(child: CircularProgressIndicator())),
+        theme: theme,
+        home: const CupertinoPageScaffold(child: SizedBox.expand()),
+        builder: (context, child) => DesktopWindowFrame(child: child!),
       );
     }
 
-    return MaterialApp.router(
+    return CupertinoApp.router(
       debugShowCheckedModeBanner: false,
-      title: 'Biometric Attendance',
-      theme: AppTheme.light(seedColor: themeSeed),
-      darkTheme: AppTheme.dark(seedColor: themeSeed),
-      themeMode: themeMode,
-      routerConfig: router,
+      title: 'Insight',
+      theme: theme,
+      routerConfig: ref.watch(routerProvider),
+      // The desktop title bar, drawn by the app; a no-op on phones.
+      builder: (context, child) => DesktopWindowFrame(child: child!),
     );
   }
 }

@@ -1,36 +1,67 @@
 import 'dart:async';
 import 'package:camera/camera.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
-import 'package:lottie/lottie.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../app_theme.dart';
-import '../core/widgets/core_widgets.dart';
+import '../core/widgets/cover_camera_preview.dart';
 import '../models/attendance.dart';
-import '../models/session_entry.dart';
 import '../models/student.dart';
 import '../providers/settings_provider.dart';
 import '../providers/sessions_provider.dart';
+import '../services/camera_errors.dart';
 import '../services/camera_rotation.dart';
 import '../services/captured_file_cleanup.dart';
 import '../services/face_processor.dart';
 import '../services/live_face_tracker.dart';
-import 'app_chrome.dart';
-import 'biometric_indicators.dart';
+import '../services/session_clock.dart';
+import '../ui/insight_ui.dart';
 import 'face_overlay_painter.dart';
-import 'responsive_utils.dart';
 
+enum ScanEventKind {
+  /// A new attendance record was written.
+  checkedIn,
+
+  /// The student already has a record for this session today.
+  alreadyCheckedIn,
+
+  /// A face was seen repeatedly but matched nobody.
+  unknown,
+}
+
+class ScanEvent {
+  const ScanEvent(this.kind, {this.student, this.attendance, this.at});
+
+  final ScanEventKind kind;
+  final Student? student;
+
+  /// The new record for [ScanEventKind.checkedIn], or the earlier one for
+  /// [ScanEventKind.alreadyCheckedIn].
+  final Attendance? attendance;
+  final DateTime? at;
+}
+
+/// The kiosk's camera: shows the live preview with a face-tracking overlay,
+/// recognizes enrolled students, writes attendance, and reports each
+/// outcome through [onEvent]. The kiosk decides how to present outcomes.
 class CameraScanner extends ConsumerStatefulWidget {
-  final Box<Student> studentsBox;
-  final Box<Attendance> attendanceBox;
-
   const CameraScanner({
     super.key,
     required this.studentsBox,
     required this.attendanceBox,
+    required this.onEvent,
+    this.enabled = true,
+    this.pausedLabel = 'Check-in paused',
   });
+
+  final Box<Student> studentsBox;
+  final Box<Attendance> attendanceBox;
+  final ValueChanged<ScanEvent> onEvent;
+
+  /// When false the preview stays live but nothing is recognized or logged.
+  final bool enabled;
+  final String pausedLabel;
 
   @override
   ConsumerState<CameraScanner> createState() => _CameraScannerState();
@@ -42,47 +73,42 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
   FaceProcessor? _faceProcessor;
   LiveFaceTracker? _liveFaceTracker;
   // A dedicated notifier (rather than a plain field + setState) so the
-  // ~8/sec live-tracking updates only repaint the camera overlay, instead
-  // of rebuilding this whole widget's badges/panels/Lottie setup on every
-  // tick.
+  // ~8/sec live-tracking updates only repaint the camera overlay.
   final ValueNotifier<LiveFaceTrackingFrame?> _liveFaceFrameNotifier =
       ValueNotifier(null);
   bool _isTrackingFace = false;
   DateTime _lastTrackedAt = DateTime.fromMillisecondsSinceEpoch(0);
   static const Duration _liveTrackingInterval = Duration(milliseconds: 120);
+
   String? _recognizedStudent;
-  String _statusLabel = 'Waiting for camera access';
+  bool _highlight = false;
+  String _statusLabel = 'Starting camera…';
   bool _isProcessing = false;
   bool _isStreaming = false;
   bool _cameraDenied = false;
   bool _initializationFailed = false;
   DateTime _lastProcessedAt = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime _lastRecognitionAt = DateTime.fromMillisecondsSinceEpoch(0);
-  final Duration _recognitionCooldown = const Duration(seconds: 2);
-  static const Duration _attendanceDedupeWindow = Duration(minutes: 1);
-  final Map<String, DateTime> _recentAttendanceByStudent = {};
+  static const Duration _recognitionCooldown = Duration(seconds: 2);
+  static const Duration _resultHold = Duration(seconds: 3);
   static const Duration _streamScanInterval = Duration(milliseconds: 220);
   static const Duration _snapshotScanInterval = Duration(milliseconds: 1150);
-  Timer? _cooldownTicker;
   Timer? _snapshotTicker;
-  int _cooldownSecondsLeft = 0;
+  Timer? _resetTimer;
+
+  // Unknown faces are reported only after several consecutive misses, and
+  // at most once per [_unknownCooldown], so a half-turned head doesn't
+  // flash "not recognized".
+  int _consecutiveUnknown = 0;
+  DateTime _lastUnknownAt = DateTime.fromMillisecondsSinceEpoch(0);
+  static const Duration _unknownCooldown = Duration(seconds: 5);
+  int get _unknownThreshold => _usesSnapshotScanning ? 2 : 4;
 
   /// Students whose baselines came from the current face model. Profiles
   /// enrolled with an older pipeline cannot be matched and must be
   /// registered again.
   bool get _hasMatchableStudents =>
       widget.studentsBox.values.any(FaceProcessor.hasCompatibleEmbeddings);
-
-  String get _idleStatusLabel {
-    if (!_hasMatchableStudents) {
-      return widget.studentsBox.isEmpty
-          ? 'Register students to start scanning'
-          : 'Re-register students to use the updated face model';
-    }
-    return _usesSnapshotScanning
-        ? 'Align your face for a quick snapshot'
-        : 'Center your face in the frame';
-  }
 
   bool get _usesSnapshotScanning =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
@@ -97,12 +123,6 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     if (!kIsWeb) {
-      for (final log in widget.attendanceBox.values) {
-        final previous = _recentAttendanceByStudent[log.studentId];
-        if (previous == null || log.timestamp.isAfter(previous)) {
-          _recentAttendanceByStudent[log.studentId] = log.timestamp;
-        }
-      }
       _faceProcessor = FaceProcessor();
       _liveFaceTracker = LiveFaceTracker();
       if (_requiresRuntimeCameraPermission) {
@@ -115,24 +135,16 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
 
   Future<void> _requestPermissions() async {
     final status = await Permission.camera.request();
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     if (status.isGranted) {
       setState(() {
         _cameraDenied = false;
-        _statusLabel = 'Preparing camera';
+        _statusLabel = 'Starting camera…';
       });
       await _initializeCamera();
     } else {
-      setState(() {
-        _cameraDenied = true;
-        _statusLabel = 'Camera permission is required';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Camera permission is required')),
-      );
+      setState(() => _cameraDenied = true);
     }
   }
 
@@ -176,21 +188,28 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       setState(() {
         _controller = controller;
         _initializationFailed = false;
-        _statusLabel = _idleStatusLabel;
       });
 
       _startScanning();
     } catch (e) {
       debugPrint('Failed to initialize camera: $e');
-      if (!mounted) {
+      if (!mounted) return;
+      // Desktop backends ask for access themselves during initialize().
+      if (isCameraPermissionError(e)) {
+        setState(() => _cameraDenied = true);
         return;
       }
       setState(() {
         _initializationFailed = true;
-        _statusLabel = 'Unable to initialize the camera';
+        _statusLabel = e is StateError
+            ? e.message
+            : 'The camera could not be started.';
       });
     }
   }
+
+  bool get _canRecognize =>
+      widget.enabled && _hasMatchableStudents && _recognizedStudent == null;
 
   void _startScanning() {
     if (_usesSnapshotScanning) {
@@ -199,26 +218,17 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     }
 
     final controller = _controller;
-    if (controller == null ||
-        widget.studentsBox.isEmpty ||
-        _isStreaming ||
-        !controller.value.isInitialized) {
+    if (controller == null || _isStreaming || !controller.value.isInitialized) {
       return;
     }
 
     _isStreaming = true;
     controller.startImageStream((CameraImage image) async {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       unawaited(_updateLiveFaceTracking(image, controller));
-      if (_isProcessing) {
-        return;
-      }
+      if (_isProcessing || !_canRecognize) return;
       final now = DateTime.now();
-      if (now.difference(_lastProcessedAt) < _streamScanInterval) {
-        return;
-      }
+      if (now.difference(_lastProcessedAt) < _streamScanInterval) return;
       _lastProcessedAt = now;
 
       // Recognition time is measured from the moment the frame arrives
@@ -227,16 +237,13 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       _isProcessing = true;
       try {
         final outcome = await _processImage(image);
-        if (!mounted) {
-          return;
+        if (!mounted) return;
+        if (!(_liveFaceTracker?.isSupported ?? false)) {
+          _showScanBox(outcome.scan);
         }
-
-        _handleRecognition(outcome, scanTimer);
+        _handleOutcome(outcome, scanTimer);
       } catch (e) {
         debugPrint('Error processing image: $e');
-        if (mounted) {
-          setState(() => _statusLabel = 'Scanning paused, trying again');
-        }
       } finally {
         _isProcessing = false;
       }
@@ -245,10 +252,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
 
   void _startSnapshotScanning() {
     final controller = _controller;
-    if (controller == null ||
-        widget.studentsBox.isEmpty ||
-        _isStreaming ||
-        !controller.value.isInitialized) {
+    if (controller == null || _isStreaming || !controller.value.isInitialized) {
       return;
     }
 
@@ -260,14 +264,14 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
         _isStreaming = false;
         return;
       }
-      if (_isProcessing || controller.value.isTakingPicture) {
+      if (_isProcessing ||
+          controller.value.isTakingPicture ||
+          !_canRecognize) {
         return;
       }
 
       final now = DateTime.now();
-      if (now.difference(_lastProcessedAt) < _snapshotScanInterval) {
-        return;
-      }
+      if (now.difference(_lastProcessedAt) < _snapshotScanInterval) return;
       _lastProcessedAt = now;
 
       // Includes the snapshot capture itself, so the time covers capture,
@@ -276,15 +280,10 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       _isProcessing = true;
       try {
         final outcome = await _processStillCapture();
-        if (!mounted) {
-          return;
-        }
-        _handleRecognition(outcome, scanTimer);
+        if (!mounted) return;
+        _handleOutcome(outcome, scanTimer);
       } catch (e) {
         debugPrint('Error processing snapshot capture: $e');
-        if (mounted) {
-          setState(() => _statusLabel = 'Snapshot scan paused, trying again');
-        }
       } finally {
         _isProcessing = false;
       }
@@ -300,13 +299,9 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     CameraController controller,
   ) async {
     final tracker = _liveFaceTracker;
-    if (tracker == null || !tracker.isSupported || _isTrackingFace) {
-      return;
-    }
+    if (tracker == null || !tracker.isSupported || _isTrackingFace) return;
     final now = DateTime.now();
-    if (now.difference(_lastTrackedAt) < _liveTrackingInterval) {
-      return;
-    }
+    if (now.difference(_lastTrackedAt) < _liveTrackingInterval) return;
     _lastTrackedAt = now;
 
     _isTrackingFace = true;
@@ -316,9 +311,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
         camera: controller.description,
         deviceOrientation: controller.value.deviceOrientation,
       );
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       _liveFaceFrameNotifier.value = frame;
     } finally {
       _isTrackingFace = false;
@@ -334,11 +327,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     }
 
     final controller = _controller;
-    if (controller == null) {
-      _isStreaming = false;
-      return;
-    }
-    if (!controller.value.isStreamingImages) {
+    if (controller == null || !controller.value.isStreamingImages) {
       _isStreaming = false;
       return;
     }
@@ -371,31 +360,33 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     try {
       final bytes = await picture.readAsBytes();
       final scan = await processor.processEncodedImage(bytes);
-      if (mounted) {
-        _liveFaceFrameNotifier.value = scan == null
-            ? null
-            : LiveFaceTrackingFrame(
-                geometry: NormalizedBoxGeometry(
-                  left: scan.box[0],
-                  top: scan.box[1],
-                  width: scan.box[2],
-                  height: scan.box[3],
-                ),
-              );
-      }
-      return _matchScan(processor, scan);
+      if (mounted) _showScanBox(scan);
+      return await _matchScan(processor, scan);
     } finally {
       await deleteCapturedFile(picture.path);
     }
+  }
+
+  /// Draws the recognizer's own face box as the tracking overlay, for
+  /// platforms without ML Kit live tracking (Windows, macOS).
+  void _showScanBox(FaceScanResult? scan) {
+    _liveFaceFrameNotifier.value = scan == null
+        ? null
+        : LiveFaceTrackingFrame(
+            geometry: NormalizedBoxGeometry(
+              left: scan.box[0],
+              top: scan.box[1],
+              width: scan.box[2],
+              height: scan.box[3],
+            ),
+          );
   }
 
   Future<_ScanOutcome> _matchScan(
     FaceProcessor processor,
     FaceScanResult? scan,
   ) async {
-    if (scan == null) {
-      return const _ScanOutcome.none();
-    }
+    if (scan == null) return const _ScanOutcome.none();
     final threshold = ref.read(recognitionThresholdProvider);
     final students = widget.studentsBox.values.toList(growable: false);
     final studentId = await processor.recognizeStudent(
@@ -407,58 +398,77 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     return _ScanOutcome(studentId, scan);
   }
 
-  bool _logAttendanceIfNeeded(String studentId, Stopwatch scanTimer) {
+  /// The student's earlier record for the current session today, or for
+  /// today's general check-ins when no session is running.
+  Attendance? _existingRecord(String studentId, String? sessionTitle) {
     final now = DateTime.now();
-    final recent = _recentAttendanceByStudent[studentId];
-    if (recent != null && now.difference(recent) < _attendanceDedupeWindow) {
-      return false;
-    }
-
-    final nowMinute = now.hour * 60 + now.minute;
-    SessionEntry? activeSession;
-    for (final session in ref.read(sessionsProvider)) {
-      if (nowMinute >= session.startMinuteOfDay &&
-          nowMinute <= session.endMinuteOfDay) {
-        activeSession = session;
-        break;
+    for (final log in widget.attendanceBox.values) {
+      if (log.studentId == studentId &&
+          log.sessionTitle == sessionTitle &&
+          isSameDay(log.timestamp, now)) {
+        return log;
       }
     }
-
-    final attendance = Attendance(
-      studentId: studentId,
-      timestamp: now,
-      sessionTitle: activeSession?.title,
-      room: activeSession?.room,
-      latencyMs: scanTimer.elapsedMilliseconds,
-    );
-    widget.attendanceBox.add(attendance);
-    _recentAttendanceByStudent[studentId] = now;
-    return true;
+    return null;
   }
 
-  int _remainingCooldownSeconds(String studentId) {
-    final recent = _recentAttendanceByStudent[studentId];
-    if (recent == null) {
-      return 0;
-    }
-    final elapsed = DateTime.now().difference(recent);
-    final remaining = _attendanceDedupeWindow - elapsed;
-    if (remaining.isNegative) {
-      return 0;
-    }
-    return remaining.inSeconds;
-  }
-
-  void _handleRecognition(_ScanOutcome outcome, Stopwatch scanTimer) {
+  void _handleOutcome(_ScanOutcome outcome, Stopwatch scanTimer) {
     final recognized = outcome.studentId;
-    if (recognized == null ||
-        recognized == _recognizedStudent ||
-        DateTime.now().difference(_lastRecognitionAt) <= _recognitionCooldown) {
+
+    if (recognized == null) {
+      if (outcome.scan == null) {
+        _consecutiveUnknown = 0;
+        return;
+      }
+      _consecutiveUnknown++;
+      final now = DateTime.now();
+      if (_consecutiveUnknown >= _unknownThreshold &&
+          now.difference(_lastUnknownAt) > _unknownCooldown) {
+        _consecutiveUnknown = 0;
+        _lastUnknownAt = now;
+        widget.onEvent(ScanEvent(ScanEventKind.unknown, at: now));
+      }
       return;
     }
 
+    _consecutiveUnknown = 0;
+    if (DateTime.now().difference(_lastRecognitionAt) <= _recognitionCooldown) {
+      return;
+    }
     _lastRecognitionAt = DateTime.now();
-    final didLog = _logAttendanceIfNeeded(recognized, scanTimer);
+
+    final student = widget.studentsBox.values
+        .where((s) => s.id == recognized)
+        .firstOrNull;
+    final now = DateTime.now();
+    final session = activeSessionAt(ref.read(sessionsProvider), now);
+    final existing = _existingRecord(recognized, session?.title);
+
+    final ScanEvent event;
+    if (existing != null) {
+      event = ScanEvent(
+        ScanEventKind.alreadyCheckedIn,
+        student: student,
+        attendance: existing,
+        at: now,
+      );
+    } else {
+      final attendance = Attendance(
+        studentId: recognized,
+        timestamp: now,
+        sessionTitle: session?.title,
+        room: session?.room,
+        latencyMs: scanTimer.elapsedMilliseconds,
+      );
+      widget.attendanceBox.add(attendance);
+      event = ScanEvent(
+        ScanEventKind.checkedIn,
+        student: student,
+        attendance: attendance,
+        at: now,
+      );
+    }
+
     final scan = outcome.scan;
     if (scan != null) {
       debugPrint(
@@ -466,47 +476,27 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
         'capture-to-log ${scanTimer.elapsedMilliseconds} ms',
       );
     }
-    final remaining = _remainingCooldownSeconds(recognized);
+
+    // Hold off on recognizing anyone else while the result is on screen.
     setState(() {
       _recognizedStudent = recognized;
-      _statusLabel = didLog
-          ? 'Attendance logged'
-          : 'Already logged recently. Ask student to step aside.';
-      _cooldownSecondsLeft = remaining;
+      _highlight = true;
     });
-    _startCooldownTicker(recognized);
-    Future.delayed(const Duration(seconds: 3), () {
+    widget.onEvent(event);
+    _resetTimer?.cancel();
+    _resetTimer = Timer(_resultHold, () {
       if (mounted) {
         setState(() {
           _recognizedStudent = null;
-          _statusLabel = _idleStatusLabel;
+          _highlight = false;
         });
       }
     });
   }
 
-  void _startCooldownTicker(String studentId) {
-    _cooldownTicker?.cancel();
-    _cooldownTicker = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      final remaining = _remainingCooldownSeconds(studentId);
-      if (remaining <= 0) {
-        setState(() => _cooldownSecondsLeft = 0);
-        timer.cancel();
-        return;
-      }
-      setState(() => _cooldownSecondsLeft = remaining);
-    });
-  }
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (kIsWeb) {
-      return;
-    }
+    if (kIsWeb) return;
     if (state == AppLifecycleState.resumed) {
       _startScanning();
       return;
@@ -517,8 +507,8 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _cooldownTicker?.cancel();
     _snapshotTicker?.cancel();
+    _resetTimer?.cancel();
     final controller = _controller;
     if (controller != null) {
       if (_usesSnapshotScanning || controller.value.isStreamingImages) {
@@ -535,232 +525,118 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
   @override
   Widget build(BuildContext context) {
     if (kIsWeb) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text(
-            'Face recognition is not supported on web. Please run this app on Android, iOS, or desktop.',
-            textAlign: TextAlign.center,
-          ),
-        ),
+      return const _CameraMessage(
+        icon: CupertinoIcons.desktopcomputer,
+        title: 'Not available on the web',
+        message: 'Run Insight on a Mac, PC, iPhone or Android device to scan.',
       );
     }
 
     if (_cameraDenied) {
-      return const _ScannerStatePanel(
-        icon: Icons.no_photography_outlined,
-        title: 'Camera permission required',
-        subtitle:
-            'Allow camera access from system settings to start live recognition.',
+      return _CameraMessage(
+        icon: CupertinoIcons.video_camera,
+        title: 'Camera access needed',
+        message: defaultTargetPlatform == TargetPlatform.macOS
+            ? 'Allow Insight in System Settings › Privacy & Security › Camera, '
+                  'then reopen the app.'
+            : 'Allow Insight to use the camera in system settings.',
       );
     }
 
     if (_initializationFailed) {
-      return _ScannerStatePanel(
-        icon: Icons.camera_alt_outlined,
+      return _CameraMessage(
+        icon: CupertinoIcons.exclamationmark_triangle,
         title: 'Camera unavailable',
-        subtitle: _statusLabel,
+        message: _statusLabel,
       );
     }
 
-    if (_controller == null || !_controller!.value.isInitialized) {
-      return _ScannerLoadingState(statusLabel: _statusLabel);
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) {
+      return _CameraMessage(
+        title: _statusLabel,
+        loading: true,
+      );
     }
 
-    final threshold = ref.watch(recognitionThresholdProvider);
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = AppBreakpoints.isCompact(constraints.maxWidth);
-
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(30),
-              child: ValueListenableBuilder<LiveFaceTrackingFrame?>(
-                valueListenable: _liveFaceFrameNotifier,
-                builder: (context, frame, _) {
-                  return CoverCameraPreview(
-                    controller: _controller!,
-                    foregroundPainter: FaceTrackingOverlayPainter(
-                      frame: frame,
-                      color: _recognizedStudent != null
-                          ? const Color(0xFF00E599)
-                          : Colors.white,
-                    ),
-                  );
-                },
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ValueListenableBuilder<LiveFaceTrackingFrame?>(
+          valueListenable: _liveFaceFrameNotifier,
+          builder: (context, frame, _) => CoverCameraPreview(
+            controller: controller,
+            foregroundPainter: FaceTrackingOverlayPainter(
+              frame: frame,
+              color: _highlight
+                  ? CupertinoColors.systemGreen.darkColor
+                  : CupertinoColors.white,
+            ),
+          ),
+        ),
+        // A soft scrim at the bottom so the status capsule stays legible
+        // over bright backgrounds.
+        const IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.center,
+                end: Alignment.bottomCenter,
+                colors: [Color(0x00000000), Color(0x66000000)],
               ),
             ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    const Color(0x99243578),
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.42),
-                  ],
-                ),
-              ),
+          ),
+        ),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: ValueListenableBuilder<LiveFaceTrackingFrame?>(
+              valueListenable: _liveFaceFrameNotifier,
+              builder: (context, frame, _) =>
+                  _StatusCapsule(label: _capsuleLabel(frame != null)),
             ),
-            Align(
-              alignment: Alignment.topLeft,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    TelemetryBadge(
-                      label: '${widget.studentsBox.length} STUDENTS LOADED',
-                      icon: Icons.badge_outlined,
-                      statusColor: Colors.white,
-                    ),
-                    if (!compact)
-                      TelemetryBadge(
-                        label: 'THRESHOLD ${threshold.toStringAsFixed(2)}',
-                        icon: Icons.tune,
-                        statusColor: Colors.white,
-                      ),
-                    if (_isProcessing)
-                      const TelemetryBadge(
-                        label: 'INFERENCE BUSY',
-                        isLive: true,
-                        statusColor: Color(0xFFFBBF24),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: compact ? 300 : 440),
-                  child: AppPanel(
-                    radius: 16,
-                    showReticles: true,
-                    padding: EdgeInsets.all(compact ? 12 : 16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            TelemetryBadge(
-                              label: _recognizedStudent == null
-                                  ? (_usesSnapshotScanning
-                                      ? 'SNAPSHOT RETICLE'
-                                      : 'LIVE SCAN ACTIVE')
-                                  : (_cooldownSecondsLeft > 0
-                                      ? 'VERIFIED • LOCK ${_cooldownSecondsLeft}S'
-                                      : 'ATTENDANCE CAPTURED'),
-                              statusColor: _recognizedStudent == null
-                                  ? context.appColors.accent
-                                  : context.appColors.success,
-                              isLive: _recognizedStudent == null,
-                            ),
-                            const Spacer(),
-                            if (_recognizedStudent != null)
-                              // "Success" by Darius Afchar, via LottieFiles
-                              // (Lottie Simple License).
-                              SizedBox(
-                                width: 32,
-                                height: 32,
-                                child: Lottie.asset(
-                                  'assets/animations/success_checkmark.json',
-                                  repeat: false,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) => Container(
-                                    width: 22,
-                                    height: 22,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF00E599),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.check,
-                                      size: 14,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          _recognizedStudent == null
-                              ? _statusLabel
-                              : 'Verified: $_recognizedStudent',
-                          maxLines: compact ? 2 : 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: compact ? 13 : 15,
-                            fontWeight: _recognizedStudent != null
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
+  }
+
+  String _capsuleLabel(bool faceVisible) {
+    if (!widget.enabled) return widget.pausedLabel;
+    if (!_hasMatchableStudents) {
+      return widget.studentsBox.isEmpty
+          ? 'No students enrolled'
+          : 'Students need to be re-enrolled';
+    }
+    if (_highlight) return 'Done';
+    return faceVisible ? 'Hold still…' : 'Look at the camera';
   }
 }
 
-class _ScannerLoadingState extends StatelessWidget {
-  final String statusLabel;
+/// The glass capsule over the video that tells the person what to do.
+class _StatusCapsule extends StatelessWidget {
+  const _StatusCapsule({required this.label});
 
-  const _ScannerLoadingState({required this.statusLabel});
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: AppPanel(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 62,
-                height: 62,
-                decoration: BoxDecoration(
-                  gradient: context.appDecorations.accentGradient,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: context.appDecorations.panelShadow,
-                ),
-                child: const Icon(
-                  Icons.camera_alt_outlined,
-                  color: Colors.white,
-                ),
+    return CupertinoTheme(
+      data: const CupertinoThemeData(brightness: Brightness.dark),
+      child: LiquidGlass(
+        clear: true,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Text(
+              label,
+              key: ValueKey(label),
+              style: InsightText.headline.copyWith(
+                color: CupertinoColors.white,
               ),
-              const SizedBox(height: 16),
-              const SizedBox(
-                width: 26,
-                height: 26,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                statusLabel,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -768,50 +644,51 @@ class _ScannerLoadingState extends StatelessWidget {
   }
 }
 
-class _ScannerStatePanel extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  const _ScannerStatePanel({
-    required this.icon,
+/// Loading, permission and error states, drawn on the dark camera well.
+class _CameraMessage extends StatelessWidget {
+  const _CameraMessage({
     required this.title,
-    required this.subtitle,
+    this.icon,
+    this.message,
+    this.loading = false,
   });
+
+  final IconData? icon;
+  final String title;
+  final String? message;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
+    const muted = Color(0x99EBEBF5);
     return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: AppPanel(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  gradient: context.appDecorations.orangeGradient,
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: context.appDecorations.panelShadow,
-                ),
-                child: Icon(icon, color: Colors.white, size: 30),
-              ),
-              const SizedBox(height: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (loading)
+              const CupertinoActivityIndicator(
+                radius: 14,
+                color: CupertinoColors.white,
+              )
+            else if (icon != null)
+              Icon(icon, size: 48, color: muted),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: InsightText.title3.copyWith(color: CupertinoColors.white),
+            ),
+            if (message != null) ...[
+              const SizedBox(height: 6),
               Text(
-                title,
+                message!,
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: InsightText.subheadline.copyWith(color: muted),
               ),
             ],
-          ),
+          ],
         ),
       ),
     );

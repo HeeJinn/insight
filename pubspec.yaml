@@ -44,6 +44,10 @@ dependencies:
   # Camera
   camera: ^0.11.0+1
   camera_windows: ^0.2.6+4
+  # macOS backend for `camera`. Vendored with only its macOS entry, since
+  # upstream also claims Windows and would conflict with camera_windows.
+  camera_desktop:
+    path: packages/camera_desktop
 
   # ML inference
   tflite_flutter: ^0.12.1
@@ -66,14 +70,9 @@ dependencies:
   # Permissions
   permission_handler: ^11.3.1
   shared_preferences: ^2.5.5
-  lottie: ^3.3.2
   share_plus: ^13.1.0
-  flutter_animate: ^4.5.2
-  shimmer: ^4.0.0
-  flutter_svg: ^2.3.0
-  freezed_annotation: ^3.1.0
-  json_annotation: ^4.12.0
-
+  lottie: ^3.6.1
+  window_manager: ^0.5.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -97,10 +96,9 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
-  uses-material-design: true
+  # The UI uses CupertinoIcons only, so the Material Icons font isn't
+  # bundled.
+  uses-material-design: false
 
   # To add assets to your application, add an assets section, like this:
   assets:

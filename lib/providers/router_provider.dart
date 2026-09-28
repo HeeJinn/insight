@@ -1,41 +1,58 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../providers/admin_lock_provider.dart';
 import '../providers/app_state_provider.dart';
-import '../screens/home_screen.dart';
-import '../screens/admin_dashboard.dart';
-import '../screens/kiosk_mode.dart';
-import '../screens/settings_screen.dart';
-import '../screens/insights_screen.dart';
-import '../screens/sessions_screen.dart';
+import '../screens/admin_shell_screen.dart';
+import '../screens/today_screen.dart';
+import '../screens/attendance_screen.dart';
+import '../screens/reports_screen.dart';
+import '../screens/kiosk_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/privacy_policy_screen.dart';
-import '../screens/insight_logs_screen.dart';
+import '../screens/sessions_screen.dart';
+import '../screens/settings_screen.dart';
 import '../screens/students_screen.dart';
-import '../screens/flavor_studio_screen.dart';
-import '../screens/root_shell_screen.dart';
+import '../ui/theme.dart';
 
-// Define routes
-final homeBranchNavigatorKey = GlobalKey<NavigatorState>(
-  debugLabel: 'homeBranchNavigator',
-);
-final insightsBranchNavigatorKey = GlobalKey<NavigatorState>(
-  debugLabel: 'insightsBranchNavigator',
-);
-final studentsBranchNavigatorKey = GlobalKey<NavigatorState>(
-  debugLabel: 'studentsBranchNavigator',
-);
-final sessionsBranchNavigatorKey = GlobalKey<NavigatorState>(
-  debugLabel: 'sessionsBranchNavigator',
-);
-final adminBranchNavigatorKey = GlobalKey<NavigatorState>(
-  debugLabel: 'adminBranchNavigator',
-);
+final todayNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'today');
+final attendanceNavigatorKey =
+    GlobalKey<NavigatorState>(debugLabel: 'attendance');
+final studentsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'students');
+final sessionsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'sessions');
+final reportsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'reports');
+final settingsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'settings');
+
+/// Each admin section's navigator, in branch order.
+final branchNavigatorKeys = [
+  todayNavigatorKey,
+  attendanceNavigatorKey,
+  studentsNavigatorKey,
+  sessionsNavigatorKey,
+  reportsNavigatorKey,
+  settingsNavigatorKey,
+];
+
+/// Where the app lands once onboarding is done: the kiosk on the Mac or PC
+/// at the door, the admin area on phones and tablets.
+String get homeLocation => isDesktopPlatform ? '/kiosk' : '/admin/today';
+
+/// Paths from before the restructure, kept so older links still resolve.
+const _legacyRedirects = {
+  '/students': '/admin/students',
+  '/sessions': '/admin/sessions',
+  '/insights': '/admin/reports',
+  '/insights/logs': '/admin/attendance',
+  '/admin': '/admin/today',
+  '/settings': '/admin/settings',
+  '/settings/privacy': '/privacy',
+};
 
 class _RouterRefreshNotifier extends ChangeNotifier {
-  final Ref _ref;
-  _RouterRefreshNotifier(this._ref) {
-    _ref.listen(onboardingDoneProvider, (previous, next) => notifyListeners());
+  _RouterRefreshNotifier(Ref ref) {
+    ref.listen(onboardingDoneProvider, (_, _) => notifyListeners());
+    ref.listen(adminUnlockedProvider, (_, _) => notifyListeners());
   }
 }
 
@@ -43,96 +60,77 @@ final routerProvider = Provider<GoRouter>((ref) {
   final refreshNotifier = _RouterRefreshNotifier(ref);
   ref.onDispose(refreshNotifier.dispose);
 
+  GoRoute section(String path, Widget screen) => GoRoute(
+        path: path,
+        pageBuilder: (context, state) => NoTransitionPage(child: screen),
+      );
+
   return GoRouter(
+    initialLocation: homeLocation,
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
+      final location = state.matchedLocation;
+      final legacy = _legacyRedirects[location];
+      if (legacy != null) return legacy;
+
       final onboardingDone = ref.read(onboardingDoneProvider);
-      final isOnboarding = state.matchedLocation == '/onboarding';
-      final isPrivacy = state.matchedLocation == '/privacy' ||
-          state.matchedLocation == '/settings/privacy';
-      if (!onboardingDone && !isOnboarding && !isPrivacy) {
-        return '/onboarding';
+      final isOnboarding = location == '/onboarding';
+      final isPrivacy = location == '/privacy';
+      if (!onboardingDone) {
+        return isOnboarding || isPrivacy ? null : '/onboarding';
       }
-      if (onboardingDone && isOnboarding) {
-        return '/';
+      if (isOnboarding || location == '/') return homeLocation;
+
+      if (location.startsWith('/admin') && !ref.read(adminUnlockedProvider)) {
+        return '/kiosk';
       }
       return null;
     },
     routes: [
+      GoRoute(path: '/', redirect: (_, _) => homeLocation),
+      GoRoute(path: '/kiosk', builder: (_, _) => const KioskScreen()),
+      GoRoute(
+        path: '/onboarding',
+        builder: (_, _) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/privacy',
+        builder: (_, _) => const PrivacyPolicyScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
-            RootShellScreen(navigationShell: navigationShell),
+            AdminShellScreen(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(
-            navigatorKey: homeBranchNavigatorKey,
+            navigatorKey: todayNavigatorKey,
+            routes: [section('/admin/today', const TodayScreen())],
+          ),
+          StatefulShellBranch(
+            navigatorKey: attendanceNavigatorKey,
             routes: [
-              GoRoute(
-                path: '/',
-                builder: (context, state) => const HomeScreen(),
-              ),
+              section('/admin/attendance', const AttendanceScreen()),
             ],
           ),
           StatefulShellBranch(
-            navigatorKey: insightsBranchNavigatorKey,
-            routes: [
-              GoRoute(
-                path: '/insights',
-                builder: (context, state) => const InsightsScreen(),
-              ),
-            ],
+            navigatorKey: studentsNavigatorKey,
+            routes: [section('/admin/students', const StudentsScreen())],
           ),
           StatefulShellBranch(
-            navigatorKey: studentsBranchNavigatorKey,
-            routes: [
-              GoRoute(
-                path: '/students',
-                builder: (context, state) => const StudentsScreen(),
-              ),
-            ],
+            navigatorKey: sessionsNavigatorKey,
+            routes: [section('/admin/sessions', const SessionsScreen())],
           ),
           StatefulShellBranch(
-            navigatorKey: sessionsBranchNavigatorKey,
-            routes: [
-              GoRoute(
-                path: '/sessions',
-                builder: (context, state) => const SessionsScreen(),
-              ),
-            ],
+            navigatorKey: reportsNavigatorKey,
+            routes: [section('/admin/reports', const ReportsScreen())],
           ),
           StatefulShellBranch(
-            navigatorKey: adminBranchNavigatorKey,
+            navigatorKey: settingsNavigatorKey,
             routes: [
-              GoRoute(
-                path: '/admin',
-                builder: (context, state) => const AdminDashboard(),
-              ),
+              section('/admin/settings', const SettingsScreen()),
             ],
           ),
         ],
       ),
-      GoRoute(path: '/kiosk', builder: (context, state) => const KioskMode()),
-      GoRoute(
-        path: '/settings',
-        builder: (context, state) => const SettingsScreen(),
-      ),
-      GoRoute(
-        path: '/settings/privacy',
-        builder: (context, state) => const PrivacyPolicyScreen(),
-      ),
-      GoRoute(
-        path: '/settings/flavors',
-        builder: (context, state) => const FlavorStudioScreen(),
-      ),
-      GoRoute(
-        path: '/insights/logs',
-        builder: (context, state) => const InsightLogsScreen(),
-      ),
-      GoRoute(
-        path: '/onboarding',
-        builder: (context, state) => const OnboardingScreen(),
-      ),
-      GoRoute(path: '/privacy', redirect: (context, state) => '/settings/privacy'),
-      GoRoute(path: '/flavors', redirect: (context, state) => '/settings/flavors'),
     ],
   );
 });
