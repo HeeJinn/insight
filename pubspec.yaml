@@ -44,6 +44,10 @@ dependencies:
   # Camera
   camera: ^0.11.0+1
   camera_windows: ^0.2.6+4
+  # macOS backend for `camera`. Vendored with only its macOS entry, since
+  # upstream also claims Windows and would conflict with camera_windows.
+  camera_desktop:
+    path: packages/camera_desktop
 
   # ML inference
   tflite_flutter: ^0.12.1

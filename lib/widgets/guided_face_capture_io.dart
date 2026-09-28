@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../core/widgets/cover_camera_preview.dart';
+import '../services/camera_errors.dart';
 import '../services/camera_rotation.dart';
 import '../services/captured_file_cleanup.dart';
 import '../services/face_processor.dart';
@@ -208,13 +209,25 @@ class _GuidedFaceCaptureState extends State<GuidedFaceCapture> {
         } catch (disposeError) {
           debugPrint('Error disposing failed camera controller: $disposeError');
         }
-        if (e is StateError) {
+        if (e is StateError || isCameraPermissionError(e)) {
           break;
         }
       }
     }
 
     if (!mounted) {
+      return;
+    }
+    // Desktop backends ask for access themselves during initialize().
+    if (isCameraPermissionError(lastError)) {
+      setState(() {
+        _isInitializing = false;
+        _isPermissionDenied = true;
+        _errorMessage = defaultTargetPlatform == TargetPlatform.macOS
+            ? 'Allow Insight in System Settings › Privacy & Security › '
+                  'Camera, then reopen the app.'
+            : 'Camera permission is required for guided capture.';
+      });
       return;
     }
     setState(() {
@@ -708,10 +721,14 @@ class _GuidedFaceCaptureState extends State<GuidedFaceCapture> {
               CupertinoButton.filled(
                 sizeStyle: CupertinoButtonSize.medium,
                 borderRadius: BorderRadius.circular(InsightRadii.capsule),
-                onPressed: _isPermissionDenied
+                onPressed: _isPermissionDenied && _requiresRuntimePermission
                     ? _requestPermissionThenInit
                     : _initializeCamera,
-                child: Text(_isPermissionDenied ? 'Allow Camera' : 'Try Again'),
+                child: Text(
+                  _isPermissionDenied && _requiresRuntimePermission
+                      ? 'Allow Camera'
+                      : 'Try Again',
+                ),
               ),
             ],
           ),

@@ -10,6 +10,7 @@ import '../models/attendance.dart';
 import '../models/student.dart';
 import '../providers/settings_provider.dart';
 import '../providers/sessions_provider.dart';
+import '../services/camera_errors.dart';
 import '../services/camera_rotation.dart';
 import '../services/captured_file_cleanup.dart';
 import '../services/face_processor.dart';
@@ -193,6 +194,11 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     } catch (e) {
       debugPrint('Failed to initialize camera: $e');
       if (!mounted) return;
+      // Desktop backends ask for access themselves during initialize().
+      if (isCameraPermissionError(e)) {
+        setState(() => _cameraDenied = true);
+        return;
+      }
       setState(() {
         _initializationFailed = true;
         _statusLabel = e is StateError
@@ -232,6 +238,9 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       try {
         final outcome = await _processImage(image);
         if (!mounted) return;
+        if (!(_liveFaceTracker?.isSupported ?? false)) {
+          _showScanBox(outcome.scan);
+        }
         _handleOutcome(outcome, scanTimer);
       } catch (e) {
         debugPrint('Error processing image: $e');
@@ -351,22 +360,26 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     try {
       final bytes = await picture.readAsBytes();
       final scan = await processor.processEncodedImage(bytes);
-      if (mounted) {
-        _liveFaceFrameNotifier.value = scan == null
-            ? null
-            : LiveFaceTrackingFrame(
-                geometry: NormalizedBoxGeometry(
-                  left: scan.box[0],
-                  top: scan.box[1],
-                  width: scan.box[2],
-                  height: scan.box[3],
-                ),
-              );
-      }
+      if (mounted) _showScanBox(scan);
       return await _matchScan(processor, scan);
     } finally {
       await deleteCapturedFile(picture.path);
     }
+  }
+
+  /// Draws the recognizer's own face box as the tracking overlay, for
+  /// platforms without ML Kit live tracking (Windows, macOS).
+  void _showScanBox(FaceScanResult? scan) {
+    _liveFaceFrameNotifier.value = scan == null
+        ? null
+        : LiveFaceTrackingFrame(
+            geometry: NormalizedBoxGeometry(
+              left: scan.box[0],
+              top: scan.box[1],
+              width: scan.box[2],
+              height: scan.box[3],
+            ),
+          );
   }
 
   Future<_ScanOutcome> _matchScan(
@@ -520,10 +533,13 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     }
 
     if (_cameraDenied) {
-      return const _CameraMessage(
+      return _CameraMessage(
         icon: CupertinoIcons.video_camera,
         title: 'Camera access needed',
-        message: 'Allow Insight to use the camera in system settings.',
+        message: defaultTargetPlatform == TargetPlatform.macOS
+            ? 'Allow Insight in System Settings › Privacy & Security › Camera, '
+                  'then reopen the app.'
+            : 'Allow Insight to use the camera in system settings.',
       );
     }
 
