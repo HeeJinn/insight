@@ -26,6 +26,7 @@ class FaceScanResult {
     required this.box,
     required this.detectionScore,
     required this.processingMs,
+    this.pose,
   });
 
   /// L2-normalized MobileFaceNet embedding of the aligned face.
@@ -44,6 +45,10 @@ class FaceScanResult {
   /// Time spent inside the worker isolate (decode/convert, detect, align,
   /// embed), in milliseconds.
   final int processingMs;
+
+  /// Rough head pose from the same landmarks, for the liveness turn. Null
+  /// when the landmarks are degenerate.
+  final FacePose? pose;
 }
 
 /// On-device face pipeline: BlazeFace detection, landmark alignment and
@@ -597,6 +602,7 @@ class _FacePipeline {
       box: detection.box,
       detectionScore: detection.score,
       processingMs: stopwatch.elapsedMilliseconds,
+      pose: _poseOf(image, detection),
     );
   }
 
@@ -623,12 +629,7 @@ class _FacePipeline {
     if (detection == null) {
       return null;
     }
-    // Pose needs x and y on the same scale, so work in pixels.
-    final w = image.width.toDouble();
-    final h = image.height.toDouble();
-    math.Point<double> px(int k) =>
-        math.Point(detection.keypoints[k].x * w, detection.keypoints[k].y * h);
-    final pose = FacePose.fromLandmarks(px(0), px(1), px(2), px(3));
+    final pose = _poseOf(image, detection);
     if (pose == null) {
       return null;
     }
@@ -637,6 +638,15 @@ class _FacePipeline {
       score: detection.score,
       pose: pose,
     );
+  }
+
+  FacePose? _poseOf(img.Image image, _Detection detection) {
+    // Pose needs x and y on the same scale, so work in pixels.
+    final w = image.width.toDouble();
+    final h = image.height.toDouble();
+    math.Point<double> px(int k) =>
+        math.Point(detection.keypoints[k].x * w, detection.keypoints[k].y * h);
+    return FacePose.fromLandmarks(px(0), px(1), px(2), px(3));
   }
 
   // -- Detection ------------------------------------------------------------

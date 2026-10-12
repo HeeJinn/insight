@@ -407,6 +407,7 @@ class RecognitionSettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final threshold = ref.watch(recognitionThresholdProvider);
+    final liveness = ref.watch(livenessCheckProvider);
     final settings = ref.read(settingsControllerProvider);
     final secondary = InsightColors.secondaryLabel.resolveFrom(context);
     final isDefault =
@@ -420,6 +421,24 @@ class RecognitionSettingsPage extends ConsumerWidget {
             constraints: const BoxConstraints(maxWidth: 680),
             child: ListView(
               children: [
+                InsightListSection(
+                  footer:
+                      'Students turn their head a little before a check-in '
+                      'counts, so a photo or phone screen held up to the '
+                      "camera can't check anyone in.",
+                  children: [
+                    InsightRow(
+                      title: 'Require Head Turn',
+                      trailing: CupertinoSwitch(
+                        value: liveness,
+                        activeTrackColor: InsightColors.accent.resolveFrom(
+                          context,
+                        ),
+                        onChanged: settings.setLivenessCheck,
+                      ),
+                    ),
+                  ],
+                ),
                 InsightListSection(
                   header: 'Match Strictness',
                   footer:

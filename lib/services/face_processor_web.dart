@@ -16,6 +16,7 @@ class FaceScanResult {
     required this.box,
     required this.detectionScore,
     required this.processingMs,
+    this.pose,
   });
 
   final List<double> embedding;
@@ -23,6 +24,7 @@ class FaceScanResult {
   final List<double> box;
   final double detectionScore;
   final int processingMs;
+  final FacePose? pose;
 }
 
 typedef FaceMatch = ({String? studentId, double distance, double margin});

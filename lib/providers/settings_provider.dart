@@ -14,12 +14,17 @@ const _themePrefKey = 'theme_preference';
 // meaningful for aligned MobileFaceNet embeddings, so they are ignored.
 const _thresholdKey = 'recognition_threshold_v2';
 const _soundKey = 'sound_feedback_enabled';
+const _livenessKey = 'liveness_check_enabled';
 const _lateDefaultKey = 'default_late_after_minutes';
 
 final themePreferenceProvider = StateProvider<AppThemePreference>(
   (ref) => AppThemePreference.system,
 );
 final soundFeedbackProvider = StateProvider<bool>((ref) => true);
+
+/// Whether the kiosk asks a recognized face to turn a little before it
+/// records, so a photo held up to the camera doesn't check anyone in.
+final livenessCheckProvider = StateProvider<bool>((ref) => true);
 
 /// The late cutoff new sessions start with, in minutes after the start.
 final defaultLateAfterProvider = StateProvider<int>(
@@ -39,6 +44,8 @@ final settingsBootstrapProvider = FutureProvider<void>((ref) async {
       prefs.getDouble(_thresholdKey) ?? FaceProcessor.defaultThreshold;
   ref.read(soundFeedbackProvider.notifier).state =
       prefs.getBool(_soundKey) ?? true;
+  ref.read(livenessCheckProvider.notifier).state =
+      prefs.getBool(_livenessKey) ?? true;
   ref.read(defaultLateAfterProvider.notifier).state =
       prefs.getInt(_lateDefaultKey) ?? SessionEntry.defaultLateAfterMinutes;
 });
@@ -67,6 +74,12 @@ class SettingsController {
     _ref.read(soundFeedbackProvider.notifier).state = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_soundKey, value);
+  }
+
+  Future<void> setLivenessCheck(bool value) async {
+    _ref.read(livenessCheckProvider.notifier).state = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_livenessKey, value);
   }
 
   Future<void> setDefaultLateAfter(int minutes) async {

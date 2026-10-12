@@ -101,7 +101,12 @@ void main() {
 
     test('mirrored frames give the same magnitudes', () {
       final normal = _pose(yawDeg: 25, pitchDeg: 10, rollDeg: 5);
-      final mirrored = _pose(yawDeg: 25, pitchDeg: 10, rollDeg: 5, mirrored: true);
+      final mirrored = _pose(
+        yawDeg: 25,
+        pitchDeg: 10,
+        rollDeg: 5,
+        mirrored: true,
+      );
       expect(mirrored.yaw, closeTo(-normal.yaw, 1e-9));
       expect(mirrored.pitch, closeTo(normal.pitch, 1e-9));
       expect(mirrored.roll, closeTo(-normal.roll, 1e-6));
@@ -116,19 +121,27 @@ void main() {
   group('PoseGuide', () {
     test('checks framing before pose', () {
       final guide = PoseGuide();
-      expect(guide.check(CapturePose.front, null).hint,
-          'Position your face in the frame');
+      expect(
+        guide.check(CapturePose.front, null).hint,
+        'Position your face in the frame',
+      );
       expect(guide.check(CapturePose.front, _face(score: 0.4)).ok, isFalse);
       expect(
-        guide.check(CapturePose.front, _face(box: const [0.45, 0.4, 0.1, 0.15])).hint,
+        guide
+            .check(CapturePose.front, _face(box: const [0.45, 0.4, 0.1, 0.15]))
+            .hint,
         'Move closer',
       );
       expect(
-        guide.check(CapturePose.front, _face(box: const [0.0, 0.1, 0.3, 0.4])).hint,
+        guide
+            .check(CapturePose.front, _face(box: const [0.0, 0.1, 0.3, 0.4]))
+            .hint,
         'Center your face in the frame',
       );
-      expect(guide.check(CapturePose.front, _face(rollDeg: 25)).hint,
-          'Keep your head level');
+      expect(
+        guide.check(CapturePose.front, _face(rollDeg: 25)).hint,
+        'Keep your head level',
+      );
     });
 
     test('front requires looking at the camera', () {
@@ -140,17 +153,25 @@ void main() {
     test('turns must be far enough, not too far, and on opposite sides', () {
       final guide = PoseGuide()..record(CapturePose.front, _face());
 
-      expect(guide.check(CapturePose.turnA, _face(yawDeg: 8)).hint,
-          'Turn your head to one side');
-      expect(guide.check(CapturePose.turnA, _face(yawDeg: 55)).hint,
-          'Too far, turn back slightly');
+      expect(
+        guide.check(CapturePose.turnA, _face(yawDeg: 8)).hint,
+        'Turn your head to one side',
+      );
+      expect(
+        guide.check(CapturePose.turnA, _face(yawDeg: 55)).hint,
+        'Too far, turn back slightly',
+      );
       expect(guide.check(CapturePose.turnA, _face(yawDeg: -30)).ok, isTrue);
 
       guide.record(CapturePose.turnA, _face(yawDeg: -30));
-      expect(guide.check(CapturePose.turnB, _face(yawDeg: -30)).hint,
-          'Turn to the other side');
-      expect(guide.check(CapturePose.turnB, _face(yawDeg: 12)).hint,
-          'Turn a little more');
+      expect(
+        guide.check(CapturePose.turnB, _face(yawDeg: -30)).hint,
+        'Turn to the other side',
+      );
+      expect(
+        guide.check(CapturePose.turnB, _face(yawDeg: 12)).hint,
+        'Turn a little more',
+      );
       expect(guide.check(CapturePose.turnB, _face(yawDeg: 30)).ok, isTrue);
       // Re-checking a (possibly mirrored) still ignores the direction.
       expect(
@@ -164,21 +185,59 @@ void main() {
     test('tilts are measured against the person\'s own front pose', () {
       final guide = PoseGuide()..record(CapturePose.front, _face());
 
-      expect(guide.check(CapturePose.tiltA, _face()).hint,
-          'Tilt your head up or down');
-      expect(guide.check(CapturePose.tiltA, _face(pitchDeg: 15, yawDeg: 25)).hint,
-          'Face forward, then tilt');
+      expect(
+        guide.check(CapturePose.tiltA, _face()).hint,
+        'Tilt your head up or down',
+      );
+      expect(
+        guide.check(CapturePose.tiltA, _face(pitchDeg: 15, yawDeg: 25)).hint,
+        'Face forward, then tilt',
+      );
       expect(guide.check(CapturePose.tiltA, _face(pitchDeg: 15)).ok, isTrue);
 
       guide.record(CapturePose.tiltA, _face(pitchDeg: 15));
-      expect(guide.check(CapturePose.tiltB, _face(pitchDeg: 15)).hint,
-          'Tilt the other way');
+      expect(
+        guide.check(CapturePose.tiltB, _face(pitchDeg: 15)).hint,
+        'Tilt the other way',
+      );
       expect(guide.check(CapturePose.tiltB, _face(pitchDeg: -15)).ok, isTrue);
     });
 
     test('a manual front capture without a face still allows turns', () {
       final guide = PoseGuide()..record(CapturePose.front, null);
       expect(guide.check(CapturePose.turnA, _face(yawDeg: 30)).ok, isTrue);
+    });
+  });
+
+  group('TurnChallenge', () {
+    final t0 = DateTime(2026, 10, 13, 9);
+    DateTime at(int ms) => t0.add(Duration(milliseconds: ms));
+
+    test('passes once the same face turns enough', () {
+      final c = TurnChallenge();
+      expect(c.passes('s1', 0.02, at(0)), isFalse, reason: 'starts');
+      expect(c.isPending(at(10)), isTrue);
+      expect(c.passes('s1', 0.08, at(300)), isFalse, reason: 'too small');
+      expect(c.passes('s1', -0.16, at(600)), isTrue);
+      expect(c.isPending(at(610)), isFalse, reason: 'reset after passing');
+    });
+
+    test('a still photo never passes', () {
+      final c = TurnChallenge();
+      for (var i = 0; i < 20; i++) {
+        expect(
+          c.passes('s1', 0.05 + (i.isEven ? 0.01 : 0), at(i * 250)),
+          isFalse,
+        );
+      }
+    });
+
+    test('another face or an expired window starts over', () {
+      final c = TurnChallenge(window: const Duration(seconds: 2));
+      c.passes('s1', 0.0, at(0));
+      expect(c.passes('s2', 0.3, at(200)), isFalse, reason: 'new face');
+      expect(c.passes('s2', 0.3, at(2500)), isFalse, reason: 'expired');
+      expect(c.passes('s2', 0.0, at(2700)), isTrue);
     });
   });
 }

@@ -107,6 +107,8 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
   static const Duration _unknownCooldown = Duration(seconds: 5);
   int get _unknownThreshold => _usesSnapshotScanning ? 2 : 4;
 
+  final TurnChallenge _turn = TurnChallenge();
+
   /// Students whose baselines came from the current face model. Profiles
   /// enrolled with an older pipeline cannot be matched and must be
   /// registered again.
@@ -418,6 +420,8 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
         );
       }
       final now = DateTime.now();
+      // A head mid-turn often isn't matched; that's not "unknown".
+      if (_turn.isPending(now)) return;
       if (_consecutiveUnknown >= _unknownThreshold &&
           now.difference(_lastUnknownAt) > _unknownCooldown) {
         _consecutiveUnknown = 0;
@@ -428,23 +432,33 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     }
 
     _consecutiveUnknown = 0;
-    if (DateTime.now().difference(_lastRecognitionAt) <= _recognitionCooldown) {
+    final now = DateTime.now();
+    final session = activeSessionAt(ref.read(sessionsProvider), now);
+    final offList = session != null && !session.admits(recognized);
+    var existing = offList ? null : _existingRecord(recognized, session?.title);
+
+    // Only a check-in that would be recorded needs the liveness turn; the
+    // capsule asks for it while it's pending.
+    final recording = !offList && (existing == null || existing.excused);
+    if (recording &&
+        ref.read(livenessCheckProvider) &&
+        !_turn.passes(recognized, outcome.scan?.pose?.yaw, now)) {
+      if (mounted) setState(() {});
       return;
     }
-    _lastRecognitionAt = DateTime.now();
+
+    if (now.difference(_lastRecognitionAt) <= _recognitionCooldown) return;
+    _lastRecognitionAt = now;
 
     final student = widget.studentsBox.values
         .where((s) => s.id == recognized)
         .firstOrNull;
-    final now = DateTime.now();
-    final session = activeSessionAt(ref.read(sessionsProvider), now);
-    if (session != null && !session.admits(recognized)) {
+    if (offList) {
       widget.onEvent(
         ScanEvent(ScanEventKind.notOnClassList, student: student, at: now),
       );
       return;
     }
-    var existing = _existingRecord(recognized, session?.title);
     // An excused student who turns up after all is simply present.
     if (existing != null && existing.excused) {
       await existing.delete();
@@ -624,6 +638,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
           : 'Students need to be re-enrolled';
     }
     if (_highlight) return 'Done';
+    if (_turn.isPending(DateTime.now())) return 'Turn your head a little';
     return faceVisible ? 'Hold still…' : 'Look at the camera';
   }
 }

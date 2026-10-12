@@ -166,8 +166,7 @@ class PoseGuide {
     }
 
     final pose = face.pose;
-    final turning =
-        target == CapturePose.turnA || target == CapturePose.turnB;
+    final turning = target == CapturePose.turnA || target == CapturePose.turnB;
     if (pose.roll.abs() > (turning ? maxRollWhileTurning : maxRoll)) {
       return const PoseCheck.fail('Keep your head level');
     }
@@ -190,14 +189,16 @@ class PoseGuide {
         final firstSign = _turnSign;
         final required =
             target == CapturePose.turnB && !ignoreDirection && firstSign != null
-                ? -firstSign
-                : null;
+            ? -firstSign
+            : null;
         if (required != null && yaw.sign != required && yaw.abs() > 0.05) {
           return const PoseCheck.fail('Turn to the other side');
         }
         if (yaw.abs() < minTurnYaw) {
           return PoseCheck.fail(
-            required == null ? 'Turn your head to one side' : 'Turn a little more',
+            required == null
+                ? 'Turn your head to one side'
+                : 'Turn a little more',
           );
         }
         if (yaw.abs() > maxTurnYaw) {
@@ -213,14 +214,16 @@ class PoseGuide {
         final firstSign = _tiltSign;
         final required =
             target == CapturePose.tiltB && !ignoreDirection && firstSign != null
-                ? -firstSign
-                : null;
+            ? -firstSign
+            : null;
         if (required != null && pitch.sign != required && pitch.abs() > 0.03) {
           return const PoseCheck.fail('Tilt the other way');
         }
         if (pitch.abs() < minTiltPitch) {
           return PoseCheck.fail(
-            required == null ? 'Tilt your head up or down' : 'Tilt a little more',
+            required == null
+                ? 'Tilt your head up or down'
+                : 'Tilt a little more',
           );
         }
         if (pitch.abs() > maxTiltPitch) {
@@ -251,5 +254,54 @@ class PoseGuide {
       case CapturePose.tiltB:
         break;
     }
+  }
+}
+
+/// Liveness by a small head turn, for the kiosk. [FacePose.yaw] is the
+/// nose's sideways offset in eye distances: it changes when a real head
+/// turns, but a flat photo or phone screen tilted toward the camera
+/// foreshortens nose and eyes alike and keeps it. Not proof against a
+/// replayed video or a set of photos at different angles.
+class TurnChallenge {
+  TurnChallenge({this.window = const Duration(seconds: 6)});
+
+  /// How long a recognized face has to make the turn.
+  final Duration window;
+
+  /// Change in yaw that counts as a turn, about 10 degrees.
+  static const double minTurn = 0.15;
+
+  String? _student;
+  double? _startYaw;
+  DateTime? _until;
+
+  /// Whether a turn is being waited for at [now].
+  bool isPending(DateTime now) => _student != null && now.isBefore(_until!);
+
+  /// Feeds a frame where [studentId] was recognized with [yaw]. True once
+  /// the same student has turned by [minTurn] within [window] of their
+  /// first frame; a different student or an expired window starts over.
+  bool passes(String studentId, double? yaw, DateTime now) {
+    if (_student != studentId || !isPending(now)) {
+      _student = studentId;
+      _startYaw = yaw;
+      _until = now.add(window);
+      return false;
+    }
+    if (yaw == null) return false;
+    final start = _startYaw;
+    if (start == null) {
+      _startYaw = yaw;
+      return false;
+    }
+    if ((yaw - start).abs() < minTurn) return false;
+    reset();
+    return true;
+  }
+
+  void reset() {
+    _student = null;
+    _startYaw = null;
+    _until = null;
   }
 }
