@@ -120,6 +120,36 @@ void main() {
       expect(d.followUp.last.lateCount, 1, reason: 'Cy was late once');
     });
 
+    test("follow-up only counts the classes on a student's list", () {
+      // Dee is only in Art, which met once and she came; Ana, Ben and Cy
+      // are only in CS.
+      const art = SessionEntry(
+        id: 'art',
+        title: 'Art',
+        room: '',
+        startMinuteOfDay: 13 * 60,
+        endMinuteOfDay: 14 * 60,
+        expected: 0,
+        studentIds: {'d'},
+      );
+      final d = ReportData.compute(
+        students: students,
+        attendance: [
+          ...records,
+          at('d', 26, 13, 0, session: 'Art'),
+        ],
+        sessions: [
+          cs.copyWith(studentIds: {'a', 'b', 'c'}),
+          art,
+        ],
+        range: ReportRange.week,
+        now: now,
+      );
+      expect(d.followUp.map((p) => p.student.name), ['Cy']);
+      final cy = d.followUp.single;
+      expect((cy.daysPresent, cy.classDays), (1, 2));
+    });
+
     test('a session filter scopes everything; all time has no comparison', () {
       final none = compute(ReportRange.all, session: 'Other');
       expect(none.checkIns, 0);

@@ -279,6 +279,19 @@ class ReportData {
     sessionReports.sort((a, b) => a.rate.compareTo(b.rate));
 
     final classDaySet = current.map((a) => day(a.timestamp)).toSet();
+    // Which sessions met each day, so a student only counts as absent from
+    // classes on their own class list (sessions without one: everyone).
+    final metOn = <DateTime, Set<String?>>{};
+    for (final a in current) {
+      (metOn[day(a.timestamp)] ??= {}).add(a.sessionTitle);
+    }
+    int classDaysFor(String id) => metOn.entries
+        .where(
+          (e) =>
+              e.value.any((t) => byTitle[t]?.admits(id) ?? true) &&
+              !(excusedByDay[e.key]?.contains(id) ?? false),
+        )
+        .length;
     final presence =
         [
           for (final s in students)
@@ -289,9 +302,7 @@ class ReportData {
                   .map((a) => day(a.timestamp))
                   .toSet()
                   .length,
-              classDays: classDaySet
-                  .where((d) => !(excusedByDay[d]?.contains(s.id) ?? false))
-                  .length,
+              classDays: classDaysFor(s.id),
               lateCount: current
                   .where((a) => a.studentId == s.id && isLate(a))
                   .length,
@@ -330,7 +341,10 @@ class ReportData {
       // Only meaningful once there are a couple of class days to compare.
       followUp: classDaySet.length < 2
           ? const []
-          : presence.where((p) => p.rate < 1).take(5).toList(),
+          : presence
+                .where((p) => p.classDays > 0 && p.rate < 1)
+                .take(5)
+                .toList(),
       classDays: classDaySet.length,
     );
   }
