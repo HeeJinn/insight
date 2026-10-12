@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 /// Insight's design tokens, expressed as iOS roles.
 ///
@@ -92,6 +93,22 @@ bool get isDesktopPlatform =>
         defaultTargetPlatform == TargetPlatform.linux);
 
 String? get _fallbackFontFamily => isApplePlatform ? null : 'Inter';
+
+/// Cupertino's own alerts, action sheets and menus ask for San Francisco
+/// by these family names, which only Apple platforms resolve; elsewhere
+/// they fall back to Segoe UI or Roboto. Registering the bundled Inter
+/// under the same names makes them match the rest of the app.
+Future<void> registerInterAsSystemFont() async {
+  if (isApplePlatform) return;
+  for (final family in const [
+    'CupertinoSystemText',
+    'CupertinoSystemDisplay',
+  ]) {
+    await (FontLoader(
+      family,
+    )..addFont(rootBundle.load('assets/fonts/Inter-Variable.ttf'))).load();
+  }
+}
 
 /// Inter's own optical tracking for [size] (rsms.me/inter/dynmetrics).
 /// San Francisco's positive display tracking makes Inter titles look loose.

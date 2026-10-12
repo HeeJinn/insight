@@ -9,6 +9,7 @@ import 'ui/insight_ui.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await registerInterAsSystemFont();
   await configureDesktopWindow();
   runApp(const ProviderScope(child: InsightApp()));
 }
