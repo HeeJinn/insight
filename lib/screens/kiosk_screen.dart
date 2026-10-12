@@ -448,27 +448,31 @@ class _IdleView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                clock.first,
-                style: InsightText.largeTitle.copyWith(
-                  fontSize: 76,
-                  height: 1.1,
-                  letterSpacing: -1.5,
-                  color: InsightColors.label.resolveFrom(context),
-                  fontFeatures: InsightText.tabular,
+          // Shrinks, rather than overflows, in a narrow phone panel.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  clock.first,
+                  style: InsightText.largeTitle.copyWith(
+                    fontSize: 76,
+                    height: 1.1,
+                    letterSpacing: -1.5,
+                    color: InsightColors.label.resolveFrom(context),
+                    fontFeatures: InsightText.tabular,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                clock.last,
-                style: InsightText.title2.copyWith(color: secondary),
-              ),
-            ],
+                const SizedBox(width: 6),
+                Text(
+                  clock.last,
+                  style: InsightText.title2.copyWith(color: secondary),
+                ),
+              ],
+            ),
           ),
           if (cutoff != null) ...[
             const SizedBox(height: 10),

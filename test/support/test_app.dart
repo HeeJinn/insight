@@ -6,11 +6,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:insight/models/attendance.dart';
 import 'package:insight/models/session_entry.dart';
+import 'package:insight/main.dart';
 import 'package:insight/models/student.dart';
 import 'package:insight/providers/hive_provider.dart';
 import 'package:insight/providers/sessions_provider.dart';
 import 'package:insight/services/session_clock.dart';
 import 'package:insight/ui/insight_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Real Hive boxes in a temp directory, seeded with a running session,
 /// twelve students (one enrolled with an outdated face model) and seven
@@ -129,3 +131,35 @@ const testSizes = [
   ('phone', Size(390, 844)),
   ('desktop', Size(1280, 860)),
 ];
+
+/// The whole app past onboarding, at [size], on the real router and shell.
+Future<void> pumpApp(
+  WidgetTester tester,
+  TestData data,
+  Size size, {
+  Map<String, Object> prefs = const {},
+}) async {
+  SharedPreferences.setMockInitialValues({'onboarding_done': true, ...prefs});
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        studentsBoxProvider.overrideWith((ref) async => data.students),
+        attendanceBoxProvider.overrideWith((ref) async => data.attendance),
+        sessionsProvider.overrideWith((ref) => FixedSessions(data.sessions)),
+      ],
+      child: const InsightApp(),
+    ),
+  );
+  await settle(tester);
+}
+
+/// Real-clock waits for the boxes, then time for transitions. The app has
+/// periodic clocks, so the tree never fully settles.
+Future<void> settle(WidgetTester tester) async {
+  await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 600));
+}
