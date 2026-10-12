@@ -15,6 +15,7 @@ import '../services/today_summary.dart';
 import '../ui/insight_ui.dart';
 import '../widgets/session_badge.dart';
 import 'admin_shell_screen.dart';
+import 'attendance_actions.dart';
 import 'session_editor.dart';
 
 /// The admin's home: what's happening right now, today's numbers, who is
@@ -150,6 +151,7 @@ class _TodayContent extends StatelessWidget {
               final missing = _MissingSection(
                 summary: summary,
                 hasSchedule: sessions.isNotEmpty,
+                attendance: attendance,
               );
               final latest = _LatestSection(
                 records: summary.todaysRecords.take(6).toList(),
@@ -480,10 +482,15 @@ class _Figure extends StatelessWidget {
 }
 
 class _MissingSection extends StatelessWidget {
-  const _MissingSection({required this.summary, required this.hasSchedule});
+  const _MissingSection({
+    required this.summary,
+    required this.hasSchedule,
+    required this.attendance,
+  });
 
   final TodaySummary summary;
   final bool hasSchedule;
+  final Box<Attendance> attendance;
 
   static const _shown = 6;
 
@@ -528,6 +535,13 @@ class _MissingSection extends StatelessWidget {
             leading: InitialsAvatar(name: s.name, size: 30),
             title: s.name,
             value: s.id,
+            showChevron: false,
+            onTap: () => showMissingStudentActions(
+              context,
+              attendance: attendance,
+              student: s,
+              session: summary.active,
+            ),
           ),
         if (missing.length > _shown)
           InsightRow(

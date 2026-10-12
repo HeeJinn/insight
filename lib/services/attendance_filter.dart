@@ -12,6 +12,9 @@ enum CheckInStatus {
   /// Recorded with no session running.
   general,
 
+  /// Absent with leave, marked by an admin.
+  excused,
+
   /// The student has since been deleted.
   unknownStudent,
 }
@@ -26,6 +29,7 @@ CheckInStatus checkInStatus(
   if (!namesById.containsKey(record.studentId)) {
     return CheckInStatus.unknownStudent;
   }
+  if (record.excused) return CheckInStatus.excused;
   final title = record.sessionTitle;
   if (title == null || title.trim().isEmpty) return CheckInStatus.general;
   final session = sessionsByTitle[title];
@@ -192,6 +196,7 @@ String statusLabel(CheckInStatus status) => switch (status) {
   CheckInStatus.onTime => 'On time',
   CheckInStatus.late => 'Late',
   CheckInStatus.general => 'General',
+  CheckInStatus.excused => 'Excused',
   CheckInStatus.unknownStudent => 'Unknown student',
 };
 

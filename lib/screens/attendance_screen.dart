@@ -11,6 +11,7 @@ import '../services/attendance_filter.dart';
 import '../services/csv_export.dart';
 import '../services/session_clock.dart';
 import '../ui/insight_ui.dart';
+import 'attendance_actions.dart';
 import 'attendance_filter_sheet.dart';
 
 enum _SortBy { time, student, session, status }
@@ -428,6 +429,12 @@ class _DayGroupedSliver extends StatelessWidget {
                   time: r.timestamp,
                   status: statusOf(r),
                 ),
+                showChevron: false,
+                onTap: () => showRecordActions(
+                  context,
+                  record: r,
+                  name: namesById[r.studentId] ?? r.studentId,
+                ),
               ),
           ],
         );
@@ -456,6 +463,10 @@ class _TimeAndStatus extends StatelessWidget {
       CheckInStatus.late => (
         'Late',
         InsightColors.warning.resolveFrom(context),
+      ),
+      CheckInStatus.excused => (
+        'Excused',
+        InsightColors.accent.resolveFrom(context),
       ),
       CheckInStatus.unknownStudent => (
         'Deleted',
@@ -656,123 +667,136 @@ class _TableRowState extends State<_TableRow> {
       CheckInStatus.onTime => secondary,
       CheckInStatus.late => InsightColors.warning.resolveFrom(context),
       CheckInStatus.general => secondary,
+      CheckInStatus.excused => InsightColors.accent.resolveFrom(context),
       CheckInStatus.unknownStudent => InsightColors.danger.resolveFrom(context),
     };
 
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
-      child: Container(
-        decoration: BoxDecoration(
-          color: _hover
-              ? Color.alphaBlend(
-                  InsightColors.fill.resolveFrom(context),
-                  InsightColors.card.resolveFrom(context),
-                )
-              : InsightColors.card.resolveFrom(context),
-          borderRadius: BorderRadius.vertical(
-            top: widget.first ? radius : Radius.zero,
-            bottom: widget.last ? radius : Radius.zero,
-          ),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => showRecordActions(
+          context,
+          record: r,
+          name: widget.name ?? r.studentId,
         ),
-        child: Column(
-          children: [
-            if (!widget.first)
-              Container(
-                height: 0.5,
-                margin: const EdgeInsets.only(left: 16),
-                color: InsightColors.separator.resolveFrom(context),
-              ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: widget.flex[0],
-                    child: Row(
-                      children: [
-                        InitialsAvatar(name: widget.name ?? '?', size: 30),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.name ?? 'Unknown student',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: InsightText.subheadline.copyWith(
-                                  color: label,
-                                  fontWeight: FontWeight.w500,
+        child: Container(
+          decoration: BoxDecoration(
+            color: _hover
+                ? Color.alphaBlend(
+                    InsightColors.fill.resolveFrom(context),
+                    InsightColors.card.resolveFrom(context),
+                  )
+                : InsightColors.card.resolveFrom(context),
+            borderRadius: BorderRadius.vertical(
+              top: widget.first ? radius : Radius.zero,
+              bottom: widget.last ? radius : Radius.zero,
+            ),
+          ),
+          child: Column(
+            children: [
+              if (!widget.first)
+                Container(
+                  height: 0.5,
+                  margin: const EdgeInsets.only(left: 16),
+                  color: InsightColors.separator.resolveFrom(context),
+                ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: widget.flex[0],
+                      child: Row(
+                        children: [
+                          InitialsAvatar(name: widget.name ?? '?', size: 30),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.name ?? 'Unknown student',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: InsightText.subheadline.copyWith(
+                                    color: label,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                r.studentId,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: InsightText.footnote.copyWith(
-                                  color: secondary,
-                                  fontFeatures: InsightText.tabular,
+                                Text(
+                                  r.studentId,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: InsightText.footnote.copyWith(
+                                    color: secondary,
+                                    fontFeatures: InsightText.tabular,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      flex: widget.flex[1],
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: Text(
+                          r.sessionTitle ?? 'General check-in',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: InsightText.subheadline.copyWith(
+                            color: r.sessionTitle == null ? secondary : label,
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    flex: widget.flex[1],
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 12),
+                    Expanded(
+                      flex: widget.flex[2],
                       child: Text(
-                        r.sessionTitle ?? 'General check-in',
+                        '${formatShortDate(r.timestamp, widget.now)}, '
+                        '${formatClock(r.timestamp)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: InsightText.subheadline.copyWith(
-                          color: r.sessionTitle == null ? secondary : label,
+                          color: label,
+                          fontFeatures: InsightText.tabular,
                         ),
                       ),
                     ),
-                  ),
-                  Expanded(
-                    flex: widget.flex[2],
-                    child: Text(
-                      '${formatShortDate(r.timestamp, widget.now)}, '
-                      '${formatClock(r.timestamp)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: InsightText.subheadline.copyWith(
-                        color: label,
-                        fontFeatures: InsightText.tabular,
+                    Expanded(
+                      flex: widget.flex[3],
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: StatusLabel(
+                          label: statusLabel(widget.status),
+                          color: statusColor,
+                        ),
                       ),
                     ),
-                  ),
-                  Expanded(
-                    flex: widget.flex[3],
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: StatusLabel(
-                        label: statusLabel(widget.status),
-                        color: statusColor,
+                    Expanded(
+                      flex: widget.flex[4],
+                      child: Text(
+                        r.latencyMs == null ? '–' : '${r.latencyMs} ms',
+                        textAlign: TextAlign.end,
+                        style: InsightText.subheadline.copyWith(
+                          color: secondary,
+                          fontFeatures: InsightText.tabular,
+                        ),
                       ),
                     ),
-                  ),
-                  Expanded(
-                    flex: widget.flex[4],
-                    child: Text(
-                      r.latencyMs == null ? '–' : '${r.latencyMs} ms',
-                      textAlign: TextAlign.end,
-                      style: InsightText.subheadline.copyWith(
-                        color: secondary,
-                        fontFeatures: InsightText.tabular,
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

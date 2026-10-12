@@ -150,9 +150,16 @@ class ReportData {
     final names = {for (final s in students) s.id};
     DateTime day(DateTime t) => DateTime(t.year, t.month, t.day);
 
-    final scoped = attendance
-        .where((a) => session == null || a.sessionTitle == session)
-        .toList();
+    final inScope = attendance.where(
+      (a) => session == null || a.sessionTitle == session,
+    );
+    // Excused students are neither present nor absent: they leave that
+    // day's headcount instead of counting either way.
+    final excusedByDay = <DateTime, Set<String>>{};
+    for (final a in inScope.where((a) => a.excused)) {
+      (excusedByDay[day(a.timestamp)] ??= {}).add(a.studentId);
+    }
+    final scoped = inScope.where((a) => !a.excused).toList();
 
     DateTime start;
     if (range.days != null) {
@@ -210,9 +217,10 @@ class ReportData {
         (perDay[day(a.timestamp)] ??= {}).add(a.studentId);
       }
       if (perDay.isEmpty) return null;
-      final shares = perDay.values.map(
-        (ids) => (ids.length / expected).clamp(0.0, 1.0),
-      );
+      final shares = perDay.entries.map((e) {
+        final due = expected - (excusedByDay[e.key]?.length ?? 0);
+        return due <= 0 ? 1.0 : (e.value.length / due).clamp(0.0, 1.0);
+      });
       return shares.reduce((a, b) => a + b) / perDay.length;
     }
 
@@ -281,7 +289,9 @@ class ReportData {
                   .map((a) => day(a.timestamp))
                   .toSet()
                   .length,
-              classDays: classDaySet.length,
+              classDays: classDaySet
+                  .where((d) => !(excusedByDay[d]?.contains(s.id) ?? false))
+                  .length,
               lateCount: current
                   .where((a) => a.studentId == s.id && isLate(a))
                   .length,

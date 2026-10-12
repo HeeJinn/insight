@@ -236,7 +236,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       try {
         final outcome = await _processImage(image);
         if (!mounted) return;
-        _handleOutcome(outcome, scanTimer);
+        await _handleOutcome(outcome, scanTimer);
       } catch (e) {
         debugPrint('Error processing image: $e');
       } finally {
@@ -274,7 +274,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       try {
         final outcome = await _processStillCapture();
         if (!mounted) return;
-        _handleOutcome(outcome, scanTimer);
+        await _handleOutcome(outcome, scanTimer);
       } catch (e) {
         debugPrint('Error processing snapshot capture: $e');
       } finally {
@@ -401,7 +401,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     return null;
   }
 
-  void _handleOutcome(_ScanOutcome outcome, Stopwatch scanTimer) {
+  Future<void> _handleOutcome(_ScanOutcome outcome, Stopwatch scanTimer) async {
     final recognized = outcome.studentId;
 
     if (recognized == null) {
@@ -437,7 +437,12 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
       );
       return;
     }
-    final existing = _existingRecord(recognized, session?.title);
+    var existing = _existingRecord(recognized, session?.title);
+    // An excused student who turns up after all is simply present.
+    if (existing != null && existing.excused) {
+      await existing.delete();
+      existing = null;
+    }
 
     final ScanEvent event;
     if (existing != null) {
@@ -455,7 +460,18 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
         room: session?.room,
         latencyMs: scanTimer.elapsedMilliseconds,
       );
-      widget.attendanceBox.add(attendance);
+      try {
+        await widget.attendanceBox.add(attendance);
+      } catch (e) {
+        debugPrint('Saving check-in failed: $e');
+        if (mounted) {
+          setState(
+            () => _statusLabel = "Couldn't save the check-in. Try again.",
+          );
+        }
+        return;
+      }
+      if (!mounted) return;
       event = ScanEvent(
         ScanEventKind.checkedIn,
         student: student,

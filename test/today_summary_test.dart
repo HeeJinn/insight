@@ -91,6 +91,33 @@ void main() {
       expect(summary.notCheckedIn.map((s) => s.id), ['s2']);
     });
 
+    test('excused students are neither present nor missing', () {
+      final summary = TodaySummary.compute(
+        students: students,
+        sessions: [
+          cs101.copyWith(studentIds: {'s1', 's2', 's3'}),
+        ],
+        now: at(9, 40),
+        attendance: [
+          Attendance(
+            studentId: 's1',
+            timestamp: at(9, 5),
+            sessionTitle: 'CS 101',
+          ),
+          Attendance(
+            studentId: 's2',
+            timestamp: at(9, 30),
+            sessionTitle: 'CS 101',
+            excused: true,
+          ),
+        ],
+      );
+      expect(summary.presentNow, 1);
+      expect(summary.expectedNow, 2, reason: '3 listed, 1 excused');
+      expect(summary.lateToday, 0, reason: 'excused is never late');
+      expect(summary.notCheckedIn.map((s) => s.id), ['s3']);
+    });
+
     test('between sessions nothing is "now" and everyone is listed', () {
       final summary = TodaySummary.compute(
         students: students,

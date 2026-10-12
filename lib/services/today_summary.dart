@@ -16,6 +16,7 @@ class TodaySummary {
     required this.enrolled,
     required this.averageScanMs,
     required this.notCheckedIn,
+    required this.excusedNow,
   });
 
   factory TodaySummary.compute({
@@ -27,15 +28,25 @@ class TodaySummary {
     final active = activeSessionAt(sessions, now);
     final byTitle = {for (final s in sessions) s.title: s};
 
-    final todays = attendance.where((a) => isSameDay(a.timestamp, now)).toList()
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final todaysAll =
+        attendance.where((a) => isSameDay(a.timestamp, now)).toList()
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    // Excused records account for a student without counting as present.
+    final todays = todaysAll.where((a) => !a.excused).toList();
 
     // "Now" means the running session, or today's general check-ins when
     // there is no schedule at all.
     final nowTitle = active?.title;
-    final activeRecords = sessions.isNotEmpty && active == null
+    final noSessionNow = sessions.isNotEmpty && active == null;
+    final activeRecords = noSessionNow
         ? const <Attendance>[]
         : todays.where((a) => a.sessionTitle == nowTitle).toList();
+    final excusedIds = noSessionNow
+        ? const <String>{}
+        : todaysAll
+              .where((a) => a.excused && a.sessionTitle == nowTitle)
+              .map((a) => a.studentId)
+              .toSet();
 
     final late = todays.where((a) {
       final s = byTitle[a.sessionTitle];
@@ -51,6 +62,7 @@ class TodaySummary {
     final missing =
         students
             .where((s) => !presentIds.contains(s.id))
+            .where((s) => !excusedIds.contains(s.id))
             .where((s) => active?.admits(s.id) ?? true)
             .toList()
           ..sort(
@@ -70,6 +82,7 @@ class TodaySummary {
           ? null
           : latencies.reduce((a, b) => a + b) ~/ latencies.length,
       notCheckedIn: missing,
+      excusedNow: excusedIds.length,
     );
   }
 
@@ -93,8 +106,12 @@ class TodaySummary {
   /// it has none) without a check-in for it.
   final List<Student> notCheckedIn;
 
+  /// Students excused from the running session.
+  final int excusedNow;
+
   int get presentNow => activeRecords.map((a) => a.studentId).toSet().length;
 
-  /// The running session's headcount, or everyone enrolled.
-  int get expectedNow => active?.headcount(enrolled) ?? enrolled;
+  /// The running session's headcount, or everyone enrolled, less anyone
+  /// excused.
+  int get expectedNow => (active?.headcount(enrolled) ?? enrolled) - excusedNow;
 }

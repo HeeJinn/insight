@@ -22,13 +22,16 @@ class AttendanceAdapter extends TypeAdapter<Attendance> {
       sessionTitle: fields[2] as String?,
       room: fields[3] as String?,
       latencyMs: (fields[4] as num?)?.toInt(),
+      excused: fields[5] == null ? false : fields[5] as bool,
+      matchDistance: (fields[6] as num?)?.toDouble(),
+      matchMargin: (fields[7] as num?)?.toDouble(),
     );
   }
 
   @override
   void write(BinaryWriter writer, Attendance obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.studentId)
       ..writeByte(1)
@@ -38,7 +41,13 @@ class AttendanceAdapter extends TypeAdapter<Attendance> {
       ..writeByte(3)
       ..write(obj.room)
       ..writeByte(4)
-      ..write(obj.latencyMs);
+      ..write(obj.latencyMs)
+      ..writeByte(5)
+      ..write(obj.excused)
+      ..writeByte(6)
+      ..write(obj.matchDistance)
+      ..writeByte(7)
+      ..write(obj.matchMargin);
   }
 
   @override
