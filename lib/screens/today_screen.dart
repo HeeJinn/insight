@@ -132,7 +132,7 @@ class _TodayContent extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
             child: Text(
-              _longDate(summary.now),
+              formatLongDate(summary.now),
               style: InsightText.subheadline.copyWith(
                 color: InsightColors.secondaryLabel.resolveFrom(context),
               ),
@@ -176,33 +176,6 @@ class _TodayContent extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  static String _longDate(DateTime d) {
-    const days = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return '${days[d.weekday - 1]}, ${months[d.month - 1]} ${d.day}';
   }
 }
 

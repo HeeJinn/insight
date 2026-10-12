@@ -204,12 +204,12 @@ class _KioskLayout extends StatelessWidget {
     final scanning = sessions.isEmpty || active != null;
 
     final camera = ClipRRect(
-      borderRadius: BorderRadius.circular(InsightRadii.card + 6),
+      borderRadius: BorderRadius.circular(InsightRadii.card),
       child: Container(
         // A faint rim keeps the well's edge visible on a black dark-mode
         // page before the video arrives.
         foregroundDecoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(InsightRadii.card + 6),
+          borderRadius: BorderRadius.circular(InsightRadii.card),
           border: Border.all(
             color: InsightColors.separator.resolveFrom(context),
             width: 0.5,
@@ -305,7 +305,6 @@ class _InfoPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final records = _todaysRecords;
-    final namesById = {for (final s in studentsBox.values) s.id: s.name};
 
     final Widget hero;
     if (event != null) {
@@ -325,68 +324,50 @@ class _InfoPanel extends StatelessWidget {
             : 'Next: ${next!.title} at ${formatMinuteOfDay(next!.startMinuteOfDay)}',
       );
     } else {
-      hero = const _IdleView();
+      hero = _IdleView(now: now, session: active);
     }
 
+    // No list of who has checked in: anyone at the door could read it.
     return InsightCard(
-      padding: const EdgeInsets.fromLTRB(24, 20, 16, 20),
-      child: LayoutBuilder(
-        builder: (context, c) {
-          // Short panels (phones in portrait) trim the recent list, then
-          // drop it, so the result itself always has room.
-          final recentCount = c.maxHeight < 420
-              ? 0
-              : c.maxHeight < 560
-              ? 2
-              : 4;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _PanelHeader(session: active, now: now, onOpenAdmin: onOpenAdmin),
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: MediaQuery.disableAnimationsOf(context)
-                      ? Duration.zero
-                      : const Duration(milliseconds: 260),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: ScaleTransition(
-                      scale: Tween(begin: 0.96, end: 1.0).animate(animation),
-                      child: child,
-                    ),
-                  ),
-                  child: KeyedSubtree(
-                    key: ValueKey(event ?? active?.id ?? 'idle'),
-                    // Scale the result down rather than clip it when the
-                    // panel is short.
-                    child: LayoutBuilder(
-                      builder: (context, box) => FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: SizedBox(width: box.maxWidth, child: hero),
-                      ),
-                    ),
+      padding: const EdgeInsets.fromLTRB(24, 20, 16, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PanelHeader(session: active, now: now, onOpenAdmin: onOpenAdmin),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 260),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale: Tween(begin: 0.96, end: 1.0).animate(animation),
+                  child: child,
+                ),
+              ),
+              child: KeyedSubtree(
+                key: ValueKey(event ?? active?.id ?? 'idle'),
+                // Scale the result down rather than clip it when the panel
+                // is short.
+                child: LayoutBuilder(
+                  builder: (context, box) => FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: SizedBox(width: box.maxWidth, child: hero),
                   ),
                 ),
               ),
-              if (!hasSchedule || active != null) ...[
-                _PresentMeter(
-                  present: records.map((r) => r.studentId).toSet().length,
-                  // No "of N" without a class list or typed headcount.
-                  expected: active?.headcount(0) ?? 0,
-                ),
-                if (recentCount > 0) ...[
-                  const SizedBox(height: 16),
-                  _RecentList(
-                    records: records.take(recentCount).toList(),
-                    names: namesById,
-                  ),
-                ],
-              ],
-            ],
-          );
-        },
+            ),
+          ),
+          if (!hasSchedule || active != null)
+            _PresentMeter(
+              present: records.map((r) => r.studentId).toSet().length,
+              // No "of N" without a class list or typed headcount.
+              expected: active?.headcount(0) ?? 0,
+            ),
+        ],
       ),
     );
   }
@@ -425,7 +406,7 @@ class _PanelHeader extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 s == null
-                    ? formatClock(now)
+                    ? formatLongDate(now)
                     : '${s.room.isEmpty ? '' : '${s.room} · '}${formatSessionRange(s)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -445,41 +426,64 @@ class _PanelHeader extends StatelessWidget {
   }
 }
 
+/// The kiosk at rest: the time, large enough to read from the door, and
+/// whether arriving now still counts as on time. The capsule over the
+/// camera says what to do.
 class _IdleView extends StatelessWidget {
-  const _IdleView();
+  const _IdleView({required this.now, required this.session});
+
+  final DateTime now;
+  final SessionEntry? session;
 
   @override
   Widget build(BuildContext context) {
-    final accent = InsightColors.accent.resolveFrom(context);
+    final secondary = InsightColors.secondaryLabel.resolveFrom(context);
+    final s = session;
+    final cutoff = s == null ? null : s.startMinuteOfDay + s.lateAfterMinutes;
+    final late = s != null && isLateFor(s, now);
+    // "9:41 AM" as a lock-screen "9:41" with a small "AM".
+    final clock = formatClock(now).split(' ');
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: accent.withValues(alpha: 0.12),
-            ),
-            child: Icon(CupertinoIcons.viewfinder, size: 48, color: accent),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                clock.first,
+                style: InsightText.largeTitle.copyWith(
+                  fontSize: 76,
+                  height: 1.1,
+                  letterSpacing: -1.5,
+                  color: InsightColors.label.resolveFrom(context),
+                  fontFeatures: InsightText.tabular,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                clock.last,
+                style: InsightText.title2.copyWith(color: secondary),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-          Text(
-            'Step Up to Check In',
-            textAlign: TextAlign.center,
-            style: InsightText.title1.copyWith(
-              color: InsightColors.label.resolveFrom(context),
+          if (cutoff != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              late
+                  ? 'Check-ins now count as late'
+                  : 'On time until ${formatMinuteOfDay(cutoff)}',
+              textAlign: TextAlign.center,
+              style: InsightText.title3.copyWith(
+                color: late
+                    ? InsightColors.warning.resolveFrom(context)
+                    : secondary,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Look at the camera. No need to touch anything.',
-            textAlign: TextAlign.center,
-            style: InsightText.body.copyWith(
-              color: InsightColors.secondaryLabel.resolveFrom(context),
-            ),
-          ),
+          ],
         ],
       ),
     );
@@ -508,16 +512,16 @@ class _EventView extends StatelessWidget {
               offList
                   ? CupertinoIcons.person_crop_circle_badge_exclam
                   : CupertinoIcons.person_crop_circle_badge_xmark,
-              size: 88,
+              size: 96,
               color: warning,
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 20),
             Text(
               offList ? 'Not on the Class List' : 'Face Not Recognized',
               textAlign: TextAlign.center,
-              style: InsightText.title1.copyWith(color: label),
+              style: InsightText.largeTitle.copyWith(color: label),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               offList
                   ? '${event.student?.name ?? 'You'} isn\'t listed for '
@@ -525,7 +529,10 @@ class _EventView extends StatelessWidget {
                         'instructor.'
                   : 'Step closer and look straight at the camera, or see your instructor.',
               textAlign: TextAlign.center,
-              style: InsightText.body.copyWith(color: secondary),
+              style: InsightText.title3.copyWith(
+                color: secondary,
+                fontWeight: FontWeight.w400,
+              ),
             ),
           ],
         ),
@@ -538,27 +545,29 @@ class _EventView extends StatelessWidget {
     final checkedIn = event.kind == ScanEventKind.checkedIn;
     final time = record?.timestamp ?? event.at ?? DateTime.now();
 
-    final Widget status;
-    if (!checkedIn) {
-      status = StatusLabel(
-        label: 'Already checked in',
-        icon: CupertinoIcons.info_circle_fill,
-        color: InsightColors.accent.resolveFrom(context),
-      );
-    } else if (session != null && isLateFor(session!, time)) {
-      status = StatusLabel(
-        label: 'Late',
-        icon: CupertinoIcons.clock_fill,
-        color: InsightColors.warning.resolveFrom(context),
-      );
-    } else {
-      status = StatusLabel(
-        label: session == null ? 'Checked in' : 'On time',
-        icon: CupertinoIcons.checkmark_circle_fill,
-        color: InsightColors.success.resolveFrom(context),
-      );
-    }
+    final late = checkedIn && session != null && isLateFor(session!, time);
 
+    // One color per outcome, on the badge and the status line alike.
+    final (IconData icon, Color color, String status) = !checkedIn
+        ? (
+            CupertinoIcons.info_circle_fill,
+            InsightColors.accent.resolveFrom(context),
+            'Already checked in',
+          )
+        : late
+        ? (
+            CupertinoIcons.clock_fill,
+            InsightColors.warning.resolveFrom(context),
+            'Late',
+          )
+        : (
+            CupertinoIcons.checkmark_circle_fill,
+            InsightColors.success.resolveFrom(context),
+            session == null ? 'Checked in' : 'On time',
+          );
+
+    // The full name, once and large: it confirms the right person was
+    // recognized, which a first-name greeting can't.
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -566,7 +575,7 @@ class _EventView extends StatelessWidget {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              InitialsAvatar(name: name, size: 112),
+              InitialsAvatar(name: name, size: 132),
               Positioned(
                 right: -4,
                 bottom: -4,
@@ -576,53 +585,31 @@ class _EventView extends StatelessWidget {
                     color: InsightColors.card.resolveFrom(context),
                   ),
                   padding: const EdgeInsets.all(3),
-                  child: Icon(
-                    checkedIn
-                        ? CupertinoIcons.checkmark_circle_fill
-                        : CupertinoIcons.info_circle_fill,
-                    size: 36,
-                    color: checkedIn
-                        ? InsightColors.success.resolveFrom(context)
-                        : InsightColors.accent.resolveFrom(context),
-                  ),
+                  child: Icon(icon, size: 42, color: color),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 22),
           Text(
-            checkedIn ? 'Welcome, ${_firstName(name)}' : name,
+            name,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: InsightText.title1.copyWith(color: label),
+            style: InsightText.largeTitle.copyWith(color: label),
           ),
-          const SizedBox(height: 4),
-          Text(
-            checkedIn ? name : 'ID ${student?.id ?? record?.studentId ?? ''}',
-            textAlign: TextAlign.center,
-            style: InsightText.subheadline.copyWith(color: secondary),
-          ),
-          const SizedBox(height: 14),
-          status,
           const SizedBox(height: 10),
           Text(
-            checkedIn
-                ? 'Checked in at ${formatClock(time)}'
-                : 'You checked in at ${formatClock(time)}',
-            style: InsightText.subheadline.copyWith(
-              color: secondary,
+            '$status · ${formatClock(time)}',
+            textAlign: TextAlign.center,
+            style: InsightText.title3.copyWith(
+              color: color,
               fontFeatures: InsightText.tabular,
             ),
           ),
         ],
       ),
     );
-  }
-
-  static String _firstName(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    return parts.isEmpty ? name : parts.first;
   }
 }
 
@@ -686,76 +673,6 @@ class _PresentMeter extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _RecentList extends StatelessWidget {
-  const _RecentList({required this.records, required this.names});
-
-  final List<Attendance> records;
-  final Map<String, String> names;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = InsightColors.label.resolveFrom(context);
-    final secondary = InsightColors.secondaryLabel.resolveFrom(context);
-    final separator = InsightColors.separator.resolveFrom(context);
-
-    if (records.isEmpty) {
-      return Text(
-        'No check-ins yet.',
-        style: InsightText.footnote.copyWith(color: secondary),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Recent',
-          style: InsightText.footnote.copyWith(
-            color: secondary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 6),
-        for (var i = 0; i < records.length; i++) ...[
-          if (i > 0)
-            Container(
-              height: 0.5,
-              margin: const EdgeInsets.only(left: 38),
-              color: separator,
-            ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 7),
-            child: Row(
-              children: [
-                InitialsAvatar(
-                  name: names[records[i].studentId] ?? records[i].studentId,
-                  size: 28,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    names[records[i].studentId] ?? records[i].studentId,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: InsightText.subheadline.copyWith(color: label),
-                  ),
-                ),
-                Text(
-                  formatClock(records[i].timestamp),
-                  style: InsightText.footnote.copyWith(
-                    color: secondary,
-                    fontFeatures: InsightText.tabular,
-                  ),
-                ),
-              ],
             ),
           ),
         ],

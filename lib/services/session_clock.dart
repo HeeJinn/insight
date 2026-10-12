@@ -42,6 +42,34 @@ bool isLateFor(SessionEntry session, DateTime time) =>
 bool isSameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
+/// "Monday, September 28"
+String formatLongDate(DateTime d) {
+  const days = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  return '${days[d.weekday - 1]}, ${months[d.month - 1]} ${d.day}';
+}
+
 /// "9:02 AM"
 String formatClock(DateTime time) => formatMinuteOfDay(minuteOfDay(time));
 
