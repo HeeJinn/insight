@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/student.dart';
 import '../providers/hive_provider.dart';
+import '../providers/settings_provider.dart';
 import '../services/captured_file_cleanup.dart';
 import '../services/face_processor.dart';
 import '../ui/insight_ui.dart';
@@ -84,12 +85,28 @@ class _EnrollStudentScreenState extends ConsumerState<EnrollStudentScreen> {
     try {
       final embeddings = await processor.processBaselinePhotos(photos);
       final existing = widget.student;
+
+      // Two profiles for one face would let either record check that
+      // person in, so a face that already matches someone needs a yes.
+      final box = await ref.read(studentsBoxProvider.future);
+      final others = box.values.where((s) => s.id != existing?.id).toList();
+      final twinId = await processor.recognizeStudent(
+        others,
+        embeddings.first,
+        threshold: ref.read(recognitionThresholdProvider),
+        alternateEmbeddings: embeddings.skip(1),
+      );
+      final twin = twinId == null ? null : box.get(twinId);
+      if (twin != null && !await _confirmDuplicate(twin)) {
+        if (mounted) setState(() => _step = _Step.face);
+        return;
+      }
+
       if (existing != null) {
         existing.embeddings = embeddings;
         await existing.save();
         _savedName = existing.name;
       } else {
-        final box = await ref.read(studentsBoxProvider.future);
         final student = Student(
           id: _id.text.trim(),
           name: _name.text.trim(),
@@ -135,6 +152,32 @@ class _EnrollStudentScreenState extends ConsumerState<EnrollStudentScreen> {
       return;
     }
     await _save(picked.map((x) => File(x.path)).toList(), ownsPhotos: false);
+  }
+
+  Future<bool> _confirmDuplicate(Student twin) async {
+    if (!mounted) return false;
+    final enroll = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Face Already Enrolled'),
+        content: Text(
+          'This face matches ${twin.name} (${twin.id}). Enrolling one '
+          'person twice lets either record check them in.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Enroll Anyway'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+    return enroll ?? false;
   }
 
   Future<void> _alert(String title, String message) {
