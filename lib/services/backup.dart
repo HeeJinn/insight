@@ -34,7 +34,12 @@ class Backup {
     'createdAt': createdAt.toIso8601String(),
     'students': [
       for (final s in students)
-        {'id': s.id, 'name': s.name, 'embeddings': s.embeddings},
+        {
+          'id': s.id,
+          'name': s.name,
+          'embeddings': s.embeddings,
+          'enrolledAt': ?s.enrolledAt?.toIso8601String(),
+        },
     ],
     'attendance': [
       for (final a in attendance)
@@ -83,6 +88,9 @@ class Backup {
               for (final e in s['embeddings'] as List)
                 [for (final v in e as List) (v as num).toDouble()],
             ],
+            enrolledAt: s['enrolledAt'] == null
+                ? null
+                : DateTime.parse(s['enrolledAt'] as String),
           ),
       ];
       if (students.any((s) => s.id.trim().isEmpty) ||

@@ -150,6 +150,29 @@ void main() {
       expect((cy.daysPresent, cy.classDays), (1, 2));
     });
 
+    test('class days before a student enrolled are not absences', () {
+      // Dee enrolled on the 26th, after the 25th's class.
+      final d = ReportData.compute(
+        students: [
+          for (final s in students)
+            s.id == 'd'
+                ? Student(
+                    id: 'd',
+                    name: 'Dee',
+                    embeddings: [],
+                    enrolledAt: DateTime(2026, 9, 26, 15),
+                  )
+                : s,
+        ],
+        attendance: records,
+        sessions: const [cs],
+        range: ReportRange.week,
+        now: now,
+      );
+      final dee = d.followUp.firstWhere((p) => p.student.id == 'd');
+      expect((dee.daysPresent, dee.classDays), (0, 1));
+    });
+
     test('a session filter scopes everything; all time has no comparison', () {
       final none = compute(ReportRange.all, session: 'Other');
       expect(none.checkIns, 0);

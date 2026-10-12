@@ -19,6 +19,7 @@ void main() {
         embeddings: [
           [0.25, -0.5],
         ],
+        enrolledAt: DateTime(2026, 9, 1, 8),
       ),
     ],
     attendance: [
@@ -55,6 +56,7 @@ void main() {
     expect(back.students.single.embeddings, [
       [0.25, -0.5],
     ]);
+    expect(back.students.single.enrolledAt, DateTime(2026, 9, 1, 8));
     final first = back.attendance.first;
     expect(first.sessionTitle, 'CS 101');
     expect(first.matchDistance, 0.42);

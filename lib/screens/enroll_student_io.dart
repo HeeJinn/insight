@@ -111,6 +111,7 @@ class _EnrollStudentScreenState extends ConsumerState<EnrollStudentScreen> {
           id: _id.text.trim(),
           name: _name.text.trim(),
           embeddings: embeddings,
+          enrolledAt: DateTime.now(),
         );
         await box.put(student.id, student);
         _savedName = student.name;

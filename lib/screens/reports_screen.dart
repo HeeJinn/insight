@@ -7,6 +7,7 @@ import '../providers/hive_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../services/report_data.dart';
 import '../ui/insight_ui.dart';
+import 'student_detail.dart';
 
 /// Trends across days: how many attend, how punctual they are, how each
 /// session and student is doing, and how fast recognition runs. One filter
@@ -479,63 +480,85 @@ class _FollowUpCard extends StatelessWidget {
     final primary = ChartColors.primary.resolveFrom(context);
     return _ListCard(
       title: 'Needs Follow-up',
-      subtitle:
-          'Lowest presence across $classDays class day${classDays == 1 ? '' : 's'}',
+      // Each row counts that student's own class days (their class lists,
+      // since they enrolled), so the subtitle doesn't give one total.
+      subtitle: 'Fewest class days present, lowest first',
       empty: classDays < 2
           ? 'Appears after two or more class days.'
           : 'Everyone attended every class day.',
       children: [
         for (final p in followUp)
           Semantics(
+            button: true,
             label:
                 '${p.student.name}: present ${p.daysPresent} of '
                 '${p.classDays} class days',
             excludeSemantics: true,
-            child: Row(
-              children: [
-                InitialsAvatar(name: p.student.name, size: 32),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(context).push(
+                CupertinoPageRoute<void>(
+                  builder: (_) => StudentDetailScreen(student: p.student),
+                ),
+              ),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    InitialsAvatar(name: p.student.name, size: 32),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            child: Text(
-                              p.student.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: InsightText.subheadline.copyWith(
-                                color: label,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  p.student.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: InsightText.subheadline.copyWith(
+                                    color: label,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '${p.daysPresent} of ${p.classDays}',
+                                style: InsightText.subheadline.copyWith(
+                                  color: label,
+                                  fontWeight: FontWeight.w600,
+                                  fontFeatures: InsightText.tabular,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Icon(
+                                CupertinoIcons.chevron_forward,
+                                size: 14,
+                                color: InsightColors.tertiaryLabel.resolveFrom(
+                                  context,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          _Meter(fraction: p.rate, color: primary),
+                          if (p.lateCount > 0) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '${p.lateCount} late',
+                              style: InsightText.footnote.copyWith(
+                                color: secondary,
                               ),
                             ),
-                          ),
-                          Text(
-                            '${p.daysPresent} of ${p.classDays}',
-                            style: InsightText.subheadline.copyWith(
-                              color: label,
-                              fontWeight: FontWeight.w600,
-                              fontFeatures: InsightText.tabular,
-                            ),
-                          ),
+                          ],
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      _Meter(fraction: p.rate, color: primary),
-                      if (p.lateCount > 0) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          '${p.lateCount} late',
-                          style: InsightText.footnote.copyWith(
-                            color: secondary,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
       ],

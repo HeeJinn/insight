@@ -18,33 +18,40 @@ void main() {
     await dir.delete(recursive: true);
   });
 
-  test('moves plain profiles into the encrypted box, then deletes them', () async {
-    final plain = await Hive.openBox<Student>('students');
-    await plain.put(
-      's1',
-      Student(
-        id: 's1',
-        name: 'Maria Santos',
-        embeddings: [
-          [0.25, -0.5],
-        ],
-      ),
-    );
-    await plain.close();
+  test(
+    'moves plain profiles into the encrypted box, then deletes them',
+    () async {
+      final plain = await Hive.openBox<Student>('students');
+      await plain.put(
+        's1',
+        Student(
+          id: 's1',
+          name: 'Maria Santos',
+          embeddings: [
+            [0.25, -0.5],
+          ],
+          enrolledAt: DateTime(2026, 9, 1),
+        ),
+      );
+      await plain.close();
 
-    final key = Hive.generateSecureKey();
-    final secure = await openEncryptedStudents(key);
-    expect(secure.get('s1')?.name, 'Maria Santos');
-    expect(await Hive.boxExists('students'), isFalse);
+      final key = Hive.generateSecureKey();
+      final secure = await openEncryptedStudents(key);
+      expect(secure.get('s1')?.name, 'Maria Santos');
+      expect(secure.get('s1')?.enrolledAt, DateTime(2026, 9, 1));
+      expect(await Hive.boxExists('students'), isFalse);
 
-    // The file on disk no longer holds the name in the clear.
-    await secure.close();
-    final bytes = await File('${dir.path}/students_secure.hive').readAsBytes();
-    expect(String.fromCharCodes(bytes).contains('Maria Santos'), isFalse);
+      // The file on disk no longer holds the name in the clear.
+      await secure.close();
+      final bytes = await File(
+        '${dir.path}/students_secure.hive',
+      ).readAsBytes();
+      expect(String.fromCharCodes(bytes).contains('Maria Santos'), isFalse);
 
-    final again = await openEncryptedStudents(key);
-    expect(again.get('s1')?.embeddings, [
-      [0.25, -0.5],
-    ]);
-  });
+      final again = await openEncryptedStudents(key);
+      expect(again.get('s1')?.embeddings, [
+        [0.25, -0.5],
+      ]);
+    },
+  );
 }

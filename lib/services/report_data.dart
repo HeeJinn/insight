@@ -285,13 +285,19 @@ class ReportData {
     for (final a in current) {
       (metOn[day(a.timestamp)] ??= {}).add(a.sessionTitle);
     }
-    int classDaysFor(String id) => metOn.entries
-        .where(
-          (e) =>
-              e.value.any((t) => byTitle[t]?.admits(id) ?? true) &&
-              !(excusedByDay[e.key]?.contains(id) ?? false),
-        )
-        .length;
+    // Nor from days before they enrolled.
+    int classDaysFor(Student s) {
+      final since = s.enrolledAt == null ? null : day(s.enrolledAt!);
+      return metOn.entries
+          .where(
+            (e) =>
+                (since == null || !e.key.isBefore(since)) &&
+                e.value.any((t) => byTitle[t]?.admits(s.id) ?? true) &&
+                !(excusedByDay[e.key]?.contains(s.id) ?? false),
+          )
+          .length;
+    }
+
     final presence =
         [
           for (final s in students)
@@ -302,7 +308,7 @@ class ReportData {
                   .map((a) => day(a.timestamp))
                   .toSet()
                   .length,
-              classDays: classDaysFor(s.id),
+              classDays: classDaysFor(s),
               lateCount: current
                   .where((a) => a.studentId == s.id && isLate(a))
                   .length,

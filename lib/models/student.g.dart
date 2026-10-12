@@ -22,19 +22,22 @@ class StudentAdapter extends TypeAdapter<Student> {
       embeddings: (fields[2] as List)
           .map((e) => (e as List).cast<double>())
           .toList(),
+      enrolledAt: fields[3] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Student obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
       ..write(obj.name)
       ..writeByte(2)
-      ..write(obj.embeddings);
+      ..write(obj.embeddings)
+      ..writeByte(3)
+      ..write(obj.enrolledAt);
   }
 
   @override

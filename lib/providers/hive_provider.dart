@@ -80,6 +80,7 @@ Future<Box<Student>> openEncryptedStudents(List<int> key) async {
           id: e.value.id,
           name: e.value.name,
           embeddings: e.value.embeddings,
+          enrolledAt: e.value.enrolledAt,
         ),
     });
     await secure.flush();
