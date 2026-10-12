@@ -63,11 +63,22 @@ class _AdminUnlockDialogState extends ConsumerState<_AdminUnlockDialog> {
       Navigator.of(context).pop(true);
     } else {
       HapticFeedback.heavyImpact();
+      final until = lock.lockedUntil;
       setState(() {
-        _error = 'Incorrect PIN.';
+        _error = until == null
+            ? 'Incorrect PIN.'
+            : 'Too many attempts. Try again in '
+                  '${_wait(until.difference(DateTime.now()))}.';
         _pin.clear();
       });
     }
+  }
+
+  static String _wait(Duration d) {
+    final seconds = d.inSeconds + 1;
+    if (seconds < 60) return '$seconds seconds';
+    final minutes = (seconds / 60).ceil();
+    return minutes == 1 ? '1 minute' : '$minutes minutes';
   }
 
   Widget _field({

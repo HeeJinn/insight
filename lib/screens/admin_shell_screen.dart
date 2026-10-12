@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,47 +65,106 @@ class AdminShellScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        if (navigationShell.currentIndex != 0) {
-          navigationShell.goBranch(0);
-        } else if (isDesktopPlatform) {
-          startKiosk(context, ref);
-        } else {
-          SystemNavigator.pop();
-        }
-      },
-      child: AdaptiveShell(
-        destinations: destinations,
-        currentIndex: navigationShell.currentIndex,
-        onSelect: _select,
-        sidebarFooter: Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: CupertinoButton.filled(
-            sizeStyle: CupertinoButtonSize.medium,
-            borderRadius: BorderRadius.circular(InsightRadii.capsule),
-            onPressed: () => startKiosk(context, ref),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(CupertinoIcons.viewfinder, size: 18),
-                SizedBox(width: 8),
-                // Truncates rather than overflows at large text sizes.
-                Flexible(
-                  child: Text(
-                    'Start Kiosk',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+    return _IdleLock(
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) return;
+          if (navigationShell.currentIndex != 0) {
+            navigationShell.goBranch(0);
+          } else if (isDesktopPlatform) {
+            startKiosk(context, ref);
+          } else {
+            SystemNavigator.pop();
+          }
+        },
+        child: AdaptiveShell(
+          destinations: destinations,
+          currentIndex: navigationShell.currentIndex,
+          onSelect: _select,
+          sidebarFooter: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: CupertinoButton.filled(
+              sizeStyle: CupertinoButtonSize.medium,
+              borderRadius: BorderRadius.circular(InsightRadii.capsule),
+              onPressed: () => startKiosk(context, ref),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(CupertinoIcons.viewfinder, size: 18),
+                  SizedBox(width: 8),
+                  // Truncates rather than overflows at large text sizes.
+                  Flexible(
+                    child: Text(
+                      'Start Kiosk',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
+          child: navigationShell,
         ),
-        child: navigationShell,
       ),
+    );
+  }
+}
+
+/// On the desktop kiosk, an admin area left open is open to whoever walks
+/// up next. After [timeout] without mouse or keyboard input it locks and
+/// returns to the kiosk.
+class _IdleLock extends ConsumerStatefulWidget {
+  const _IdleLock({required this.child});
+
+  final Widget child;
+
+  static const timeout = Duration(minutes: 5);
+
+  @override
+  ConsumerState<_IdleLock> createState() => _IdleLockState();
+}
+
+class _IdleLockState extends ConsumerState<_IdleLock> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!isDesktopPlatform) return;
+    HardwareKeyboard.instance.addHandler(_onKey);
+    _restart();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    super.dispose();
+  }
+
+  bool _onKey(KeyEvent _) {
+    _restart();
+    return false;
+  }
+
+  void _restart() {
+    if (!isDesktopPlatform) return;
+    _timer?.cancel();
+    _timer = Timer(_IdleLock.timeout, () {
+      if (mounted) startKiosk(context, ref);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _restart(),
+      onPointerHover: (_) => _restart(),
+      onPointerSignal: (_) => _restart(),
+      child: widget.child,
     );
   }
 }
