@@ -172,17 +172,12 @@ class _Sidebar extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 20),
             child: Row(
               children: [
-                Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: InsightColors.accent.resolveFrom(context),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    CupertinoIcons.viewfinder,
-                    size: 18,
-                    color: CupertinoColors.white,
+                ClipRSuperellipse(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.asset(
+                    'assets/branding/app_icon.png',
+                    width: 30,
+                    height: 30,
                   ),
                 ),
                 const SizedBox(width: 10),

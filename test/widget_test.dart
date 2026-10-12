@@ -45,19 +45,13 @@ void main() {
     expect(find.byType(OnboardingScreen), findsOneWidget);
     expect(find.text('Welcome to Insight'), findsOneWidget);
 
-    await tester.tap(find.text('Continue'));
-    await settle(tester);
-    expect(find.text('Your Data Stays Here'), findsOneWidget);
-    await expectAnimationLoaded(tester, CupertinoIcons.lock_shield_fill);
-
     // Reading the policy and accepting it there also moves setup on.
-    await tester.tap(find.text('Read Privacy Policy'));
+    await tester.tap(find.text('See how your data is managed…'));
     await settle(tester);
     expect(find.text('Privacy & Security First'), findsOneWidget);
     await tester.tap(find.text('Accept & Return'));
     await settle(tester);
     expect(find.text('Create an Admin PIN'), findsOneWidget);
-    await expectAnimationLoaded(tester, CupertinoIcons.lock_fill);
 
     final fields = find.byType(CupertinoTextField);
     await tester.enterText(fields.at(0), '1234');
@@ -71,7 +65,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Continue'));
     await settle(tester);
-    expect(find.text("You're All Set"), findsOneWidget);
+    expect(find.text('Insight Is Ready'), findsOneWidget);
     await expectAnimationLoaded(tester, CupertinoIcons.checkmark_circle_fill);
 
     final container = ProviderScope.containerOf(
@@ -103,17 +97,13 @@ void main() {
       await tester.tap(find.text('Continue'));
       await settle(tester);
       expect(tester.takeException(), isNull);
-
-      await tester.tap(find.text('Agree & Continue'));
-      await settle(tester);
-      expect(tester.takeException(), isNull);
       expect(find.text('Create an Admin PIN'), findsOneWidget);
 
       // Phones may postpone the PIN; the desktop kiosk may not.
       await tester.tap(find.text('Set Up Later'));
       await settle(tester);
       expect(tester.takeException(), isNull);
-      expect(find.text("You're All Set"), findsOneWidget);
+      expect(find.text('Insight Is Ready'), findsOneWidget);
     });
   }
 }

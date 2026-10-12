@@ -542,17 +542,12 @@ class AboutPage extends ConsumerWidget {
               children: [
                 const SizedBox(height: 20),
                 Center(
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: InsightColors.accent.resolveFrom(context),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: const Icon(
-                      CupertinoIcons.viewfinder,
-                      size: 40,
-                      color: CupertinoColors.white,
+                  child: ClipRSuperellipse(
+                    borderRadius: BorderRadius.circular(18),
+                    child: Image.asset(
+                      'assets/branding/app_icon.png',
+                      width: 72,
+                      height: 72,
                     ),
                   ),
                 ),
@@ -603,16 +598,13 @@ class AboutPage extends ConsumerWidget {
                     InsightRow(title: 'Storage', value: 'Hive, on device'),
                   ],
                 ),
-                // Required by the Storyset (Freepik) and LottieFiles licenses
-                // of the onboarding animations.
+                // Credits the LottieFiles animation used in onboarding.
                 const InsightListSection(
                   header: 'Acknowledgements',
                   dividerInset: 16,
                   footer:
-                      'Illustrations by Storyset (storyset.com). "Success" '
-                      'animation by Darius Afchar via LottieFiles.',
+                      '"Success" animation by Darius Afchar via LottieFiles.',
                   children: [
-                    InsightRow(title: 'Illustrations', value: 'Storyset'),
                     InsightRow(
                       title: 'Success Animation',
                       value: 'Darius Afchar',

@@ -7,17 +7,10 @@ import '../providers/admin_lock_provider.dart';
 import '../providers/app_state_provider.dart';
 import '../ui/insight_ui.dart';
 
-enum _Step { welcome, privacy, pin, done }
+enum _Step { welcome, pin, done }
 
-/// Replaces the Storyset heroes' near-black outline: unchanged in light
-/// mode, system gray on a dark page so the figures stay visible.
-const _darkModeOutline = CupertinoDynamicColor.withBrightness(
-  color: Color(0xFF263238),
-  darkColor: Color(0xFF8E8E93),
-);
-
-/// First-run setup, like Apple's setup assistant: what Insight does, the
-/// privacy agreement, the admin PIN, and where to go next.
+/// First-run setup, like Apple's setup assistant: what Insight does with a
+/// Data & Privacy note, the admin PIN, and a short confirmation.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -109,48 +102,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         // off-topic illustration.
         hero: const _AppMark(),
         title: 'Welcome to Insight',
-        message: 'Attendance by face, right at the classroom door.',
         content: const _FeatureList(),
-        primary: ('Continue', () => _go(_Step.privacy)),
-      ),
-      _Step.privacy => _Page(
-        key: const ValueKey(_Step.privacy),
-        // "Privacy policy" (Bro style) by Storyset, storyset.com, converted
-        // from its SVG with a staggered entrance. Freepik License: free
-        // with attribution, credited in Settings → About.
-        hero: const LottieHero(
-          asset: 'assets/animations/privacy.json',
-          fallbackIcon: CupertinoIcons.lock_shield_fill,
-          size: 180,
-          semanticLabel: 'A person beside a padlock and a privacy shield',
-          swapColors: {0xFF263238: _darkModeOutline},
-        ),
-        title: 'Your Data Stays Here',
-        message:
-            'Face profiles and attendance are stored only on this device and '
-            'never uploaded. Only an admin can export records.',
-        primary: ('Agree & Continue', () => _go(_Step.pin)),
-        secondary: ('Read Privacy Policy', _readPolicy),
+        footer: _PrivacyNote(onShowPolicy: _readPolicy),
+        primary: ('Continue', () => _go(_Step.pin)),
       ),
       _Step.pin => _Page(
         key: const ValueKey(_Step.pin),
-        // "Mobile login" (Bro style) by Storyset, storyset.com, converted
-        // from its animated SVG export. Freepik License: free with
-        // attribution, credited in Settings → About.
-        hero: const LottieHero(
-          asset: 'assets/animations/admin_pin.json',
-          fallbackIcon: CupertinoIcons.lock_fill,
-          size: 180,
-          semanticLabel: 'A person entering a PIN on a phone',
-          // The file's near-black outlines vanish on a dark page; lighten
-          // them there only.
-          swapColors: {0xFF263238: _darkModeOutline},
+        hero: Icon(
+          CupertinoIcons.lock_fill,
+          size: 64,
+          color: InsightColors.accent.resolveFrom(context),
         ),
         title: 'Create an Admin PIN',
-        message: _pinRequired
-            ? 'The kiosk runs at the door. This PIN keeps students out of the '
-                  'admin area.'
-            : 'Protects the admin area when the kiosk is running.',
+        message:
+            "You'll enter it to leave the kiosk and open attendance records "
+            'or settings.',
         content: _PinFields(
           pin: _pin,
           confirm: _confirm,
@@ -175,9 +141,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           size: 120,
           semanticLabel: 'Setup complete',
         ),
-        title: "You're All Set",
-        message: 'Three things get the kiosk ready:',
-        content: const _NextSteps(),
+        title: 'Insight Is Ready',
+        message:
+            'Start by enrolling your students so the kiosk can recognize '
+            'them.',
         primary: ('Get Started', _finish),
       ),
     };
@@ -188,7 +155,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         border: null,
         backgroundColor: const Color(0x00000000),
         padding: const EdgeInsetsDirectional.symmetric(horizontal: 12),
-        leading: _step == _Step.welcome || _step == _Step.done
+        leading: _step != _Step.pin
             ? null
             : Align(
                 widthFactor: 1,
@@ -196,10 +163,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   icon: CupertinoIcons.chevron_back,
                   semanticLabel: 'Back',
                   size: 40,
-                  onPressed: () => _go(_Step.values[_step.index - 1]),
+                  onPressed: () => _go(_Step.welcome),
                 ),
               ),
-        middle: _StepDots(index: _step.index, count: _Step.values.length),
       ),
       child: SafeArea(
         child: AnimatedSwitcher(
@@ -230,22 +196,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 }
 
 /// One setup page: a hero, a title and line of explanation, optional
-/// content, and the page's actions pinned at the bottom.
+/// content, and the page's footer and actions pinned at the bottom.
 class _Page extends StatelessWidget {
   const _Page({
     super.key,
     required this.hero,
     required this.title,
-    required this.message,
     required this.primary,
+    this.message,
     this.content,
+    this.footer,
     this.secondary,
   });
 
   final Widget hero;
   final String title;
-  final String message;
+  final String? message;
   final Widget? content;
+  final Widget? footer;
   final (String, VoidCallback?) primary;
   final (String, VoidCallback)? secondary;
 
@@ -274,16 +242,18 @@ class _Page extends StatelessWidget {
                           color: InsightColors.label.resolveFrom(context),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        message,
-                        textAlign: TextAlign.center,
-                        style: InsightText.body.copyWith(
-                          color: InsightColors.secondaryLabel.resolveFrom(
-                            context,
+                      if (message != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          message!,
+                          textAlign: TextAlign.center,
+                          style: InsightText.body.copyWith(
+                            color: InsightColors.secondaryLabel.resolveFrom(
+                              context,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                       if (content != null) ...[
                         const SizedBox(height: 28),
                         content!,
@@ -292,6 +262,7 @@ class _Page extends StatelessWidget {
                   ),
                 ),
               ),
+              ?footer,
               const SizedBox(height: 12),
               CupertinoButton.filled(
                 sizeStyle: CupertinoButtonSize.large,
@@ -324,56 +295,14 @@ class _AppMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 88,
-      height: 88,
-      decoration: BoxDecoration(
-        color: InsightColors.accent.resolveFrom(context),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: const Icon(
-        CupertinoIcons.viewfinder,
-        size: 48,
-        color: CupertinoColors.white,
-      ),
+    return ClipRSuperellipse(
+      borderRadius: BorderRadius.circular(22),
+      child: Image.asset('assets/branding/app_icon.png', width: 88, height: 88),
     );
   }
 }
 
-class _StepDots extends StatelessWidget {
-  const _StepDots({required this.index, required this.count});
-
-  final int index;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: 'Step ${index + 1} of $count',
-      excludeSemantics: true,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < count; i++)
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: i == index ? 18 : 7,
-              height: 7,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(InsightRadii.capsule),
-                color: i == index
-                    ? InsightColors.accent.resolveFrom(context)
-                    : InsightColors.fill.resolveFrom(context),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Apple-style feature rows: a tinted symbol, a bold line, a short detail.
+/// Apple-style feature rows: an accent symbol, a bold line, a short detail.
 class _FeatureList extends StatelessWidget {
   const _FeatureList();
 
@@ -383,21 +312,24 @@ class _FeatureList extends StatelessWidget {
       children: [
         _Feature(
           icon: CupertinoIcons.viewfinder,
-          color: CupertinoColors.systemBlue,
-          title: 'Contactless Check-in',
-          detail: 'Students step up to the kiosk and look at the camera.',
+          title: 'Check In by Looking',
+          detail:
+              'Students look at the camera by the door. No ID cards, no '
+              'sign-in sheet.',
         ),
         _Feature(
-          icon: CupertinoIcons.lock_shield_fill,
-          color: CupertinoColors.systemGreen,
-          title: 'Stays on This Device',
-          detail: 'Recognition runs offline. Nothing is uploaded.',
+          icon: CupertinoIcons.clock_fill,
+          title: 'Late Arrivals Marked',
+          detail:
+              'Check-ins are matched to your class schedule, so lateness is '
+              'recorded for you.',
         ),
         _Feature(
-          icon: CupertinoIcons.chart_bar_fill,
-          color: CupertinoColors.systemOrange,
-          title: 'Attendance at a Glance',
-          detail: 'See who is in, who is late, and trends over time.',
+          icon: CupertinoIcons.doc_text_fill,
+          title: 'Records You Can Export',
+          detail:
+              'Review attendance by class or student, and save it as a CSV '
+              'file.',
         ),
       ],
     );
@@ -407,13 +339,11 @@ class _FeatureList extends StatelessWidget {
 class _Feature extends StatelessWidget {
   const _Feature({
     required this.icon,
-    required this.color,
     required this.title,
     required this.detail,
   });
 
   final IconData icon;
-  final CupertinoDynamicColor color;
   final String title;
   final String detail;
 
@@ -426,7 +356,11 @@ class _Feature extends StatelessWidget {
         children: [
           SizedBox(
             width: 44,
-            child: Icon(icon, size: 32, color: color.resolveFrom(context)),
+            child: Icon(
+              icon,
+              size: 32,
+              color: InsightColors.accent.resolveFrom(context),
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -451,6 +385,42 @@ class _Feature extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Apple's Data & Privacy note: a small symbol, one line, and a link to the
+/// full policy, pinned above the Continue button.
+class _PrivacyNote extends StatelessWidget {
+  const _PrivacyNote({required this.onShowPolicy});
+
+  final VoidCallback onShowPolicy;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = InsightColors.accent.resolveFrom(context);
+    return Column(
+      children: [
+        Icon(CupertinoIcons.hand_raised_fill, size: 22, color: accent),
+        const SizedBox(height: 6),
+        Text(
+          'Face profiles and attendance never leave this device. By '
+          'continuing, you agree to the privacy policy.',
+          textAlign: TextAlign.center,
+          style: InsightText.footnote.copyWith(
+            color: InsightColors.secondaryLabel.resolveFrom(context),
+          ),
+        ),
+        CupertinoButton(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          minimumSize: const Size(0, 32),
+          onPressed: onShowPolicy,
+          child: Text(
+            'See how your data is managed…',
+            style: InsightText.footnote.copyWith(color: accent),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -544,43 +514,6 @@ class _PinFields extends StatelessWidget {
               ],
             ),
           ),
-      ],
-    );
-  }
-}
-
-class _NextSteps extends StatelessWidget {
-  const _NextSteps();
-
-  @override
-  Widget build(BuildContext context) {
-    return InsightListSection(
-      margin: EdgeInsets.zero,
-      children: [
-        InsightRow(
-          leading: SymbolBadge(
-            CupertinoIcons.person_badge_plus_fill,
-            CupertinoColors.systemBlue.resolveFrom(context),
-          ),
-          title: 'Enroll Students',
-          subtitle: 'Five quick face photos each, in Students.',
-        ),
-        InsightRow(
-          leading: SymbolBadge(
-            CupertinoIcons.calendar,
-            CupertinoColors.systemRed.resolveFrom(context),
-          ),
-          title: 'Add Your Schedule',
-          subtitle: 'Class times in Sessions, so lateness is tracked.',
-        ),
-        InsightRow(
-          leading: SymbolBadge(
-            CupertinoIcons.viewfinder,
-            CupertinoColors.systemGreen.resolveFrom(context),
-          ),
-          title: 'Start the Kiosk',
-          subtitle: 'From the sidebar or Today, when class begins.',
-        ),
       ],
     );
   }
