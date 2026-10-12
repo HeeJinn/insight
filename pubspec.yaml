@@ -69,6 +69,7 @@ dependencies:
   share_plus: ^13.1.0
   lottie: ^3.6.1
   window_manager: ^0.5.2
+  flutter_secure_storage: ^11.2.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
