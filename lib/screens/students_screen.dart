@@ -6,6 +6,7 @@ import '../models/attendance.dart';
 import '../models/student.dart';
 import '../providers/hive_provider.dart';
 import '../services/student_stats.dart';
+import '../services/student_id.dart';
 import '../ui/insight_ui.dart';
 import 'enroll_student_screen.dart';
 import 'student_detail.dart';
@@ -147,7 +148,7 @@ List<Student> _filterAndSort(
     final matches =
         q.isEmpty ||
         s.name.toLowerCase().contains(q) ||
-        s.id.toLowerCase().contains(q);
+        matchesStudentId(s.id, q);
     final attention =
         !needsAttentionOnly || faceProfileStatus(s) != FaceProfileStatus.ready;
     return matches && attention;

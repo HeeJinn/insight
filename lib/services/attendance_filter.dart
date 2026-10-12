@@ -1,6 +1,7 @@
 import '../models/attendance.dart';
 import '../models/session_entry.dart';
 import 'session_clock.dart';
+import 'student_id.dart';
 
 enum AttendanceRange { today, week, month, all, custom }
 
@@ -134,7 +135,7 @@ class AttendanceFilter {
       }
       if (q.isEmpty) return true;
       final name = namesById[r.studentId]?.toLowerCase() ?? '';
-      return name.contains(q) || r.studentId.toLowerCase().contains(q);
+      return name.contains(q) || matchesStudentId(r.studentId, q);
     }).toList()..sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
 

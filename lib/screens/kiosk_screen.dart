@@ -86,7 +86,7 @@ class _KioskScreenState extends ConsumerState<KioskScreen> {
     if (!kDebugMode) return const {};
     ScanEvent fake(ScanEventKind kind) {
       final student = Student(
-        id: '2021-0042',
+        id: '21-0001-00042',
         name: 'Maria Santos',
         embeddings: [],
       );

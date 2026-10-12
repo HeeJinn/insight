@@ -79,7 +79,7 @@ final demoSeedProvider = FutureProvider<void>((ref) async {
       'Luis Ramos',
     ];
     for (var i = 0; i < names.length; i++) {
-      final id = '2021-${(i + 1).toString().padLeft(4, '0')}';
+      final id = '21-0001-${(i + 1).toString().padLeft(5, '0')}';
       // Identical placeholder profiles: they read as enrolled, but the
       // recognizer rejects ties, so they can never match a real face. The
       // last one uses an outdated length to show the re-enroll state.
@@ -103,7 +103,7 @@ final demoSeedProvider = FutureProvider<void>((ref) async {
     for (var i = 0; i < offsets.length; i++) {
       await attendance.add(
         Attendance(
-          studentId: '2021-${(i + 1).toString().padLeft(4, '0')}',
+          studentId: '21-0001-${(i + 1).toString().padLeft(5, '0')}',
           timestamp: start.add(Duration(minutes: offsets[i])),
           sessionTitle: running?.title,
           room: running?.room,
@@ -130,7 +130,7 @@ final demoSeedProvider = FutureProvider<void>((ref) async {
               : random.nextInt(14) - 4;
           await attendance.add(
             Attendance(
-              studentId: '2021-${(i + 1).toString().padLeft(4, '0')}',
+              studentId: '21-0001-${(i + 1).toString().padLeft(5, '0')}',
               timestamp: day.add(
                 Duration(minutes: history.startMinuteOfDay + lateness),
               ),

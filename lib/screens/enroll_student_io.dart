@@ -11,6 +11,7 @@ import '../providers/hive_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/captured_file_cleanup.dart';
 import '../services/face_processor.dart';
+import '../services/student_id.dart';
 import '../ui/insight_ui.dart';
 import '../widgets/guided_face_capture_io.dart';
 
@@ -65,6 +66,13 @@ class _EnrollStudentScreenState extends ConsumerState<EnrollStudentScreen> {
     if (!_detailsReady) return;
     final box = await ref.read(studentsBoxProvider.future);
     final id = _id.text.trim();
+    if (!isValidStudentId(id)) {
+      HapticFeedback.heavyImpact();
+      setState(
+        () => _detailsError = 'Enter the full ID, like $studentIdFormat.',
+      );
+      return;
+    }
     if (box.containsKey(id)) {
       HapticFeedback.heavyImpact();
       setState(
@@ -390,8 +398,10 @@ class _DetailsStep extends StatelessWidget {
                         CupertinoTextField(
                           controller: id,
                           focusNode: idFocus,
-                          placeholder: 'Student ID',
+                          placeholder: 'Student ID ($studentIdFormat)',
                           decoration: null,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: const [StudentIdFormatter()],
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 15,

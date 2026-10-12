@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:insight/models/student.dart';
 import 'package:insight/screens/enroll_student_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -50,21 +51,38 @@ void main() {
     await tester.pump();
     expect(continueButton(tester).onPressed, isNull);
 
+    // Letters are dropped and dashes added; a short ID can't continue.
     await tester.enterText(fields.at(1), 's03');
     await tester.pump();
-    expect(continueButton(tester).onPressed, isNotNull);
+    expect(find.text('03'), findsOneWidget);
+    await tester.tap(find.text('Continue'));
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pump();
+    expect(find.text('Enter the full ID, like 00-0000-00000.'), findsOneWidget);
 
+    await tester.runAsync(
+      () => data.students.put(
+        '21-0123-45678',
+        Student(id: '21-0123-45678', name: 'Taken', embeddings: []),
+      ),
+    );
+    addTearDown(
+      () => tester.runAsync(() => data.students.delete('21-0123-45678')),
+    );
+    await tester.enterText(fields.at(1), '21012345678');
+    await tester.pump();
+    expect(find.text('21-0123-45678'), findsOneWidget);
     await tester.tap(find.text('Continue'));
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pump();
     expect(
-      find.text('A student with ID s03 is already enrolled.'),
+      find.text('A student with ID 21-0123-45678 is already enrolled.'),
       findsOneWidget,
     );
     expect(find.text('Add a Student'), findsOneWidget);
 
     // Editing clears the error.
-    await tester.enterText(fields.at(1), 's99');
+    await tester.enterText(fields.at(1), '21012345679');
     await tester.pump();
     expect(find.textContaining('already enrolled'), findsNothing);
   });
