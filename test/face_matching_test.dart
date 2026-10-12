@@ -29,11 +29,26 @@ void main() {
   );
 
   test('matches the closest student under the threshold', () async {
-    final id = await processor.recognizeStudent(
-      [alice, bob],
-      _vec(0, towards: 7, mix: 0.2),
-    );
+    final id = await processor.recognizeStudent([
+      alice,
+      bob,
+    ], _vec(0, towards: 7, mix: 0.2));
     expect(id, 'A-001');
+  });
+
+  test('reports distance and margin, even for a rejected face', () async {
+    final hit = await processor.matchStudent([
+      alice,
+      bob,
+    ], _vec(0, towards: 7, mix: 0.2));
+    expect(hit!.studentId, 'A-001');
+    expect(hit.distance, lessThan(FaceProcessor.defaultThreshold));
+    expect(hit.margin, greaterThan(FaceProcessor.ambiguityMargin));
+
+    final miss = await processor.matchStudent([alice, bob], _vec(20));
+    expect(miss!.studentId, isNull);
+    expect(miss.distance, greaterThan(FaceProcessor.defaultThreshold));
+    expect(await processor.matchStudent([], _vec(0)), isNull);
   });
 
   test('rejects a face that is far from everyone', () async {

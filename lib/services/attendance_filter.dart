@@ -219,6 +219,9 @@ String attendanceCsv(
 }) {
   String cell(String v) => '"${v.replaceAll('"', '""')}"';
   String two(int n) => n.toString().padLeft(2, '0');
+  // Blank for records not made by the camera, and for a margin with no
+  // runner-up (only one student enrolled).
+  String num(double? v) => v == null || !v.isFinite ? '' : v.toStringAsFixed(4);
   final lines = <String>[
     [
       'date',
@@ -229,6 +232,8 @@ String attendanceCsv(
       'room',
       'status',
       'scan_ms',
+      'match_distance',
+      'match_margin',
     ].join(','),
     for (final r in records)
       [
@@ -246,6 +251,8 @@ String attendanceCsv(
           ),
         ),
         r.latencyMs?.toString() ?? '',
+        num(r.matchDistance),
+        num(r.matchMargin),
       ].map(cell).join(','),
   ];
   return '${lines.join('\r\n')}\r\n';

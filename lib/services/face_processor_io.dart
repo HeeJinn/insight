@@ -15,6 +15,10 @@ import 'face_pose.dart';
 export 'face_pose.dart';
 
 /// Output of one pass through the face pipeline.
+/// The closest student to a live face and how close: [studentId] is null
+/// when the match was rejected.
+typedef FaceMatch = ({String? studentId, double distance, double margin});
+
 class FaceScanResult {
   const FaceScanResult({
     required this.embedding,
@@ -179,6 +183,21 @@ class FaceProcessor {
     List<double> liveEmbedding, {
     double threshold = defaultThreshold,
     Iterable<List<double>> alternateEmbeddings = const [],
+  }) async => (await matchStudent(
+    students,
+    liveEmbedding,
+    threshold: threshold,
+    alternateEmbeddings: alternateEmbeddings,
+  ))?.studentId;
+
+  /// Like [recognizeStudent], with the evidence: the best distance and its
+  /// margin over the runner-up (infinite with one candidate), kept even
+  /// when the match is rejected. Null when nobody could be compared.
+  Future<FaceMatch?> matchStudent(
+    List<Student> students,
+    List<double> liveEmbedding, {
+    double threshold = defaultThreshold,
+    Iterable<List<double>> alternateEmbeddings = const [],
   }) async {
     final liveCandidates = <List<double>>[
       liveEmbedding,
@@ -220,10 +239,14 @@ class FaceProcessor {
     final best = ranked.first;
     final runnerUp = ranked.length > 1 ? ranked[1].value : double.infinity;
 
+    final margin = runnerUp - best.value;
     final passesThreshold = best.value < threshold;
-    final clearlySeparated =
-        runnerUp.isInfinite || (runnerUp - best.value) >= ambiguityMargin;
-    return passesThreshold && clearlySeparated ? best.key : null;
+    final clearlySeparated = runnerUp.isInfinite || margin >= ambiguityMargin;
+    return (
+      studentId: passesThreshold && clearlySeparated ? best.key : null,
+      distance: best.value,
+      margin: margin,
+    );
   }
 
   static double _euclidean(List<double> a, List<double> b) {
@@ -845,11 +868,21 @@ class _FacePipeline {
           final index = rowOffset + x * pixelStride;
           if (index + 2 >= bytes.length) continue;
           if (frame.isBgra) {
-            image.setPixelRgb(x, y, bytes[index + 2], bytes[index + 1],
-                bytes[index]);
+            image.setPixelRgb(
+              x,
+              y,
+              bytes[index + 2],
+              bytes[index + 1],
+              bytes[index],
+            );
           } else {
-            image.setPixelRgb(x, y, bytes[index], bytes[index + 1],
-                bytes[index + 2]);
+            image.setPixelRgb(
+              x,
+              y,
+              bytes[index],
+              bytes[index + 1],
+              bytes[index + 2],
+            );
           }
         }
       }

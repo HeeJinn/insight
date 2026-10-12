@@ -31,6 +31,8 @@ void main() {
       sessionTitle: 'CS 101',
       room: '204',
       latencyMs: 300,
+      matchDistance: 0.42128,
+      matchMargin: double.infinity,
     ),
     Attendance(
       studentId: 's2',
@@ -134,14 +136,16 @@ void main() {
     final lines = csv.trim().split('\r\n');
     expect(
       lines.first,
-      'date,time,student_id,student_name,session,room,status,scan_ms',
+      'date,time,student_id,student_name,session,room,status,scan_ms,'
+      'match_distance,match_margin',
     );
     expect(
       lines[1],
-      '"2026-09-27","09:05:00","s1","Maria Santos","CS 101","204","On time","300"',
+      '"2026-09-27","09:05:00","s1","Maria Santos","CS 101","204","On time","300",'
+      '"0.4213",""',
     );
     expect(lines[2], contains('"John ""JD"" Cruz, Jr."'));
-    expect(lines[2], contains('"Late",""'));
+    expect(lines[2], endsWith('"Late","","",""'));
   });
 
   test('saved filters persist, replace by name, and delete', () async {

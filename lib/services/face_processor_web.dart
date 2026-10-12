@@ -25,6 +25,8 @@ class FaceScanResult {
   final int processingMs;
 }
 
+typedef FaceMatch = ({String? studentId, double distance, double margin});
+
 class FaceProcessor {
   static const String detectionModelPath =
       'assets/models/face_detection_front.tflite';
@@ -69,6 +71,15 @@ class FaceProcessor {
   }
 
   Future<String?> recognizeStudent(
+    List<Student> students,
+    List<double> liveEmbedding, {
+    double threshold = defaultThreshold,
+    Iterable<List<double>> alternateEmbeddings = const [],
+  }) async {
+    return null;
+  }
+
+  Future<FaceMatch?> matchStudent(
     List<Student> students,
     List<double> liveEmbedding, {
     double threshold = defaultThreshold,

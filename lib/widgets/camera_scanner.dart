@@ -378,13 +378,13 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
     if (scan == null) return const _ScanOutcome.none();
     final threshold = ref.read(recognitionThresholdProvider);
     final students = widget.studentsBox.values.toList(growable: false);
-    final studentId = await processor.recognizeStudent(
+    final match = await processor.matchStudent(
       students,
       scan.embedding,
       threshold: threshold,
       alternateEmbeddings: [scan.mirroredEmbedding],
     );
-    return _ScanOutcome(studentId, scan);
+    return _ScanOutcome(match?.studentId, scan, match);
   }
 
   /// The student's earlier record for the current session today, or for
@@ -410,6 +410,13 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
         return;
       }
       _consecutiveUnknown++;
+      final near = outcome.match;
+      if (near != null) {
+        debugPrint(
+          'Rejected: nearest distance ${near.distance.toStringAsFixed(3)}, '
+          'margin ${near.margin.toStringAsFixed(3)}',
+        );
+      }
       final now = DateTime.now();
       if (_consecutiveUnknown >= _unknownThreshold &&
           now.difference(_lastUnknownAt) > _unknownCooldown) {
@@ -459,6 +466,8 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
         sessionTitle: session?.title,
         room: session?.room,
         latencyMs: scanTimer.elapsedMilliseconds,
+        matchDistance: outcome.match?.distance,
+        matchMargin: outcome.match?.margin,
       );
       try {
         await widget.attendanceBox.add(attendance);
@@ -701,9 +710,12 @@ class _CameraMessage extends StatelessWidget {
 }
 
 class _ScanOutcome {
-  const _ScanOutcome(this.studentId, this.scan);
-  const _ScanOutcome.none() : studentId = null, scan = null;
+  const _ScanOutcome(this.studentId, this.scan, [this.match]);
+  const _ScanOutcome.none() : studentId = null, scan = null, match = null;
 
   final String? studentId;
   final FaceScanResult? scan;
+
+  /// The match evidence, recorded with each check-in for evaluation.
+  final FaceMatch? match;
 }
