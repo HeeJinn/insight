@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#131A33"/><stop offset="1" stop-color="#070A14"/></linearGradient>
+    <clipPath id="frame-clip"><rect x="218" y="99" width="194" height="194" rx="56"/></clipPath>
+  </defs>
+  <rect id="tile" width="512" height="512" rx="115" fill="url(#bg)"/>
+  <g id="icon">
+    <rect id="frame" x="218" y="99" width="194" height="194" rx="56" fill="#2F66FF"/>
+    <circle id="face" cx="207" cy="305" r="108" fill="#8FB0FF"/>
+    <circle id="overlap" cx="207" cy="305" r="108" fill="#FFFFFF" clip-path="url(#frame-clip)"/>
+  </g>
+</svg>
