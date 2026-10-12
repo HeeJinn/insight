@@ -8,9 +8,11 @@ import '../providers/hive_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/attendance_filter.dart';
+import '../services/backup.dart';
 import '../services/csv_export.dart';
 import '../services/data_maintenance.dart';
 import '../services/face_processor.dart';
+import '../services/session_clock.dart';
 import '../ui/insight_ui.dart';
 import '../widgets/admin_unlock_dialog.dart';
 import 'privacy_policy_screen.dart';
@@ -231,9 +233,28 @@ class _DataSection extends ConsumerWidget {
     return InsightListSection(
       header: 'Data',
       footer:
-          'Everything is stored only on this device. Erasing can\'t be '
-          'undone, so export first if you need a copy.',
+          'Everything is stored only on this device. Back up to keep a '
+          'copy somewhere else; backups are saved in Documents > Insight '
+          'Backups, and restore looks for them there.',
       children: [
+        InsightRow(
+          leading: SymbolBadge(
+            CupertinoIcons.archivebox_fill,
+            CupertinoColors.systemBlue.resolveFrom(context),
+          ),
+          title: 'Back Up Now',
+          showChevron: false,
+          onTap: () => _backUp(context, ref),
+        ),
+        InsightRow(
+          leading: SymbolBadge(
+            CupertinoIcons.arrow_counterclockwise,
+            CupertinoColors.systemGrey.resolveFrom(context),
+          ),
+          title: 'Restore from Backup…',
+          showChevron: false,
+          onTap: () => _restore(context, ref),
+        ),
         InsightRow(
           leading: SymbolBadge(
             CupertinoIcons.square_arrow_up,
@@ -261,6 +282,129 @@ class _DataSection extends ConsumerWidget {
           onTap: () => _eraseAll(context, ref),
         ),
       ],
+    );
+  }
+
+  Future<Backup> _snapshot(WidgetRef ref) async => Backup(
+    createdAt: DateTime.now(),
+    students: (await ref.read(studentsBoxProvider.future)).values.toList(),
+    attendance: (await ref.read(attendanceBoxProvider.future)).values.toList(),
+    sessions: ref.read(sessionsProvider),
+  );
+
+  Future<void> _backUp(BuildContext context, WidgetRef ref) async {
+    String? location;
+    Object? error;
+    try {
+      final backup = await _snapshot(ref);
+      location = await saveBackup(
+        backup.encode(),
+        backup.createdAt,
+        share: true,
+      );
+    } catch (e) {
+      error = e;
+    }
+    if (!context.mounted) return;
+    await _alert(
+      context,
+      error == null ? 'Backup Saved' : "Couldn't Back Up",
+      error == null
+          ? 'Saved as $location. Keep a copy on another device too.'
+          : '$error',
+    );
+  }
+
+  Future<void> _restore(BuildContext context, WidgetRef ref) async {
+    final files = (await listBackups()).take(6).toList();
+    if (!context.mounted) return;
+    if (files.isEmpty) {
+      await _alert(
+        context,
+        'No Backups Found',
+        'Put an Insight backup file in Documents > Insight Backups on '
+            'this device, then try again.',
+      );
+      return;
+    }
+    final path = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: const Text('Restore from Backup'),
+        actions: [
+          for (final f in files)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(context).pop(f.path),
+              child: Text(
+                '${formatShortDate(f.modified, DateTime.now())}, '
+                '${formatClock(f.modified)}',
+              ),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+    if (path == null) return;
+
+    final Backup backup;
+    try {
+      backup = Backup.decode(await readBackup(path));
+    } on FormatException catch (e) {
+      if (context.mounted) await _alert(context, "Can't Restore", e.message);
+      return;
+    }
+    if (!context.mounted) return;
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Replace All Data?'),
+        content: Text(
+          'The backup has ${backup.students.length} students, '
+          '${backup.attendance.length} check-ins and '
+          '${backup.sessions.length} sessions. It replaces everything on '
+          "this device; what's here now is backed up first.",
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Replace'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    Object? error;
+    try {
+      // Never replace data that couldn't be saved first.
+      final current = await _snapshot(ref);
+      await saveBackup(current.encode(), current.createdAt);
+      await backup.restoreInto(
+        students: await ref.read(studentsBoxProvider.future),
+        attendance: await ref.read(attendanceBoxProvider.future),
+        sessions: ref.read(sessionsProvider.notifier),
+      );
+    } catch (e) {
+      error = e;
+    }
+    HapticFeedback.mediumImpact();
+    if (!context.mounted) return;
+    await _alert(
+      context,
+      error == null ? 'Backup Restored' : "Couldn't Restore",
+      error == null
+          ? '${backup.students.length} students and '
+                '${backup.attendance.length} check-ins.'
+          : '$error',
     );
   }
 

@@ -66,6 +66,14 @@ class SessionsController extends StateNotifier<List<SessionEntry>> {
     }
   }
 
+  /// Replaces every session, as restoring a backup does.
+  Future<void> replaceAll(List<SessionEntry> sessions) async {
+    final next = [...sessions]
+      ..sort((a, b) => a.startMinuteOfDay.compareTo(b.startMinuteOfDay));
+    state = next;
+    await _persist(next);
+  }
+
   /// Drops a deleted student from every class list.
   Future<void> removeStudent(String studentId) async {
     if (!state.any((s) => s.studentIds.contains(studentId))) return;

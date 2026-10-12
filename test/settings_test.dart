@@ -107,6 +107,8 @@ void main() {
       size: const Size(1280, 860),
       home: const SettingsScreen(),
     );
+    await tester.ensureVisible(find.text('Delete Check-ins…'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Delete Check-ins…'));
     await tester.pumpAndSettle();
     expect(find.text('Older Than 90 Days'), findsOneWidget);
