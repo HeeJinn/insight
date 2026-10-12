@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'glass_tab_bar.dart';
+import '../liquid_glass.dart';
 import '../theme.dart';
 
 class ShellDestination {
@@ -121,20 +122,19 @@ class AdaptiveShell extends StatelessWidget {
     };
 
     final body = sidebar
-        ? Row(
-            children: [
-              _Sidebar(
-                destinations: destinations,
-                currentIndex: currentIndex,
-                onSelect: onSelect,
-                footer: sidebarFooter,
-              ),
-              Container(
-                width: 0.5,
-                color: InsightColors.separator.resolveFrom(context),
-              ),
-              Expanded(child: child),
-            ],
+        ? ColoredBox(
+            color: InsightColors.groupedBackground.resolveFrom(context),
+            child: Row(
+              children: [
+                _Sidebar(
+                  destinations: destinations,
+                  currentIndex: currentIndex,
+                  onSelect: onSelect,
+                  footer: sidebarFooter,
+                ),
+                Expanded(child: child),
+              ],
+            ),
           )
         : _withTabBar(context);
 
@@ -161,44 +161,53 @@ class _Sidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
+    // macOS Tahoe and iPadOS 26: the sidebar is a glass pane floating
+    // inside the window, not a strip ruled off from the content.
     return Container(
       width: AdaptiveShell.sidebarWidth,
-      color: InsightColors.sidebar.resolveFrom(context),
-      padding: EdgeInsets.fromLTRB(12, topInset + 20, 12, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 20),
-            child: Row(
-              children: [
-                ClipRSuperellipse(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.asset(
-                    'assets/branding/app_icon.png',
-                    width: 30,
-                    height: 30,
-                  ),
+      padding: const EdgeInsets.fromLTRB(8, 8, 0, 8),
+      child: LiquidGlass(
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(InsightRadii.card),
+        ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(12, topInset + 12, 12, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 20),
+                child: Row(
+                  children: [
+                    ClipRSuperellipse(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        'assets/branding/app_icon.png',
+                        width: 30,
+                        height: 30,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Insight',
+                      style: InsightText.headline.copyWith(
+                        color: InsightColors.label.resolveFrom(context),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Text(
-                  'Insight',
-                  style: InsightText.headline.copyWith(
-                    color: InsightColors.label.resolveFrom(context),
-                  ),
+              ),
+              for (var i = 0; i < destinations.length; i++)
+                _SidebarItem(
+                  destination: destinations[i],
+                  selected: i == currentIndex,
+                  onTap: () => onSelect(i),
                 ),
-              ],
-            ),
+              const Spacer(),
+              ?footer,
+            ],
           ),
-          for (var i = 0; i < destinations.length; i++)
-            _SidebarItem(
-              destination: destinations[i],
-              selected: i == currentIndex,
-              onTap: () => onSelect(i),
-            ),
-          const Spacer(),
-          ?footer,
-        ],
+        ),
       ),
     );
   }

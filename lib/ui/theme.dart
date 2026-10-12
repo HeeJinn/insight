@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 
@@ -33,13 +35,6 @@ class InsightColors {
   static const CupertinoDynamicColor success = CupertinoColors.systemGreen;
   static const CupertinoDynamicColor warning = CupertinoColors.systemOrange;
   static const CupertinoDynamicColor danger = CupertinoColors.systemRed;
-
-  /// The sidebar's source-list tint on desktop, a shade off the page.
-  static const CupertinoDynamicColor sidebar =
-      CupertinoDynamicColor.withBrightness(
-        color: Color(0xFFEDEDF2),
-        darkColor: Color(0xFF161618),
-      );
 }
 
 /// One radius per kind of element, app-wide. Inner radii are concentric:
@@ -98,6 +93,11 @@ bool get isDesktopPlatform =>
 
 String? get _fallbackFontFamily => isApplePlatform ? null : 'Inter';
 
+/// Inter's own optical tracking for [size] (rsms.me/inter/dynmetrics).
+/// San Francisco's positive display tracking makes Inter titles look loose.
+double _interTracking(double size) =>
+    size * (-0.0223 + 0.185 * math.exp(-0.1745 * size));
+
 /// Text styles on the iOS Dynamic Type scale, in the platform-appropriate
 /// family. Color is left to the ambient `DefaultTextStyle` or the caller.
 class InsightText {
@@ -113,7 +113,9 @@ class InsightText {
     fontSize: size,
     height: height / size,
     fontWeight: weight,
-    letterSpacing: tracking,
+    letterSpacing: _fallbackFontFamily == null
+        ? tracking
+        : _interTracking(size),
   );
 
   static final TextStyle largeTitle = _s(34, 41, FontWeight.w700, 0.4);
@@ -147,7 +149,10 @@ CupertinoThemeData insightCupertinoTheme({Brightness? brightness}) {
   if (family == null) return base;
 
   final t = base.textTheme;
-  TextStyle f(TextStyle s) => s.copyWith(fontFamily: family);
+  TextStyle f(TextStyle s) => s.copyWith(
+    fontFamily: family,
+    letterSpacing: _interTracking(s.fontSize ?? 17),
+  );
   return base.copyWith(
     textTheme: t.copyWith(
       textStyle: f(t.textStyle),

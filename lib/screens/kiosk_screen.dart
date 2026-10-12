@@ -530,19 +530,19 @@ class _EventView extends StatelessWidget {
 
     final Widget status;
     if (!checkedIn) {
-      status = StatusPill(
+      status = StatusLabel(
         label: 'Already checked in',
         icon: CupertinoIcons.info_circle_fill,
         color: InsightColors.accent.resolveFrom(context),
       );
     } else if (session != null && isLateFor(session!, time)) {
-      status = StatusPill(
+      status = StatusLabel(
         label: 'Late',
         icon: CupertinoIcons.clock_fill,
         color: InsightColors.warning.resolveFrom(context),
       );
     } else {
-      status = StatusPill(
+      status = StatusLabel(
         label: session == null ? 'Checked in' : 'On time',
         icon: CupertinoIcons.checkmark_circle_fill,
         color: InsightColors.success.resolveFrom(context),

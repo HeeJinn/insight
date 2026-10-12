@@ -652,9 +652,10 @@ class _TableRowState extends State<_TableRow> {
     const radius = Radius.circular(InsightRadii.card);
 
     final statusColor = switch (widget.status) {
-      CheckInStatus.onTime => InsightColors.success.resolveFrom(context),
+      // Only exceptions get color; a column of green "On time" is noise.
+      CheckInStatus.onTime => secondary,
       CheckInStatus.late => InsightColors.warning.resolveFrom(context),
-      CheckInStatus.general => CupertinoColors.systemGrey.resolveFrom(context),
+      CheckInStatus.general => secondary,
       CheckInStatus.unknownStudent => InsightColors.danger.resolveFrom(context),
     };
 
@@ -751,7 +752,7 @@ class _TableRowState extends State<_TableRow> {
                     flex: widget.flex[3],
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: StatusPill(
+                      child: StatusLabel(
                         label: statusLabel(widget.status),
                         color: statusColor,
                       ),

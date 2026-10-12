@@ -90,7 +90,7 @@ class _ColumnChartState extends State<ColumnChart> {
         final totals = [
           for (final v in widget.values) v.fold(0.0, (a, b) => a + b),
         ];
-        final ceiling = _niceCeiling(totals.fold(0.0, math.max));
+        final ceiling = niceCeiling(totals.fold(0.0, math.max));
 
         final chart = CustomPaint(
           size: Size(width, widget.height + _labelBand),
@@ -359,7 +359,7 @@ class _LineChartState extends State<LineChart> {
       builder: (context, c) {
         final width = c.maxWidth;
         final present = widget.values.whereType<double>();
-        final ceiling = _niceCeiling(
+        final ceiling = niceCeiling(
           present.isEmpty ? 0 : present.reduce(math.max),
         );
         final active = _active;
@@ -855,13 +855,18 @@ class _DataTable extends StatelessWidget {
   }
 }
 
-/// Rounds [max] up to 1, 2, 2.5 or 5 × 10ⁿ so gridlines land on clean
-/// numbers; at least 4 so a small chart still has four integer steps.
-double _niceCeiling(double max) {
+/// The top of a four-gridline axis: four steps of 1, 2, 2.5 or 5 × 10ⁿ, so
+/// every gridline lands on a clean whole number (0, 2, 4, 6, 8, not 0, 3,
+/// 5, 8, 10). At least 4, so a small chart still has four integer steps.
+@visibleForTesting
+double niceCeiling(double max) {
   if (max <= 4) return 4;
-  final exp = math.pow(10, (math.log(max) / math.ln10).floor()).toDouble();
+  final rough = max / 4;
+  final exp = math.pow(10, (math.log(rough) / math.ln10).floor()).toDouble();
   for (final m in const [1.0, 2.0, 2.5, 5.0, 10.0]) {
-    if (m * exp >= max) return m * exp;
+    // 2.5 is only a whole step from 25 up.
+    if (m == 2.5 && exp < 10) continue;
+    if (m * exp >= rough) return 4 * m * exp;
   }
-  return 10 * exp;
+  return 40 * exp;
 }

@@ -216,53 +216,35 @@ class _Kpis extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tiles = [
-      StatTile(
-        icon: CupertinoIcons.person_2_fill,
-        color: InsightColors.accent.resolveFrom(context),
-        label: 'Attendance',
-        value: data.attendanceRate == null ? '–' : _pct(data.attendanceRate!),
-        detail:
-            _pointsDelta(data.attendanceRate, data.previousAttendanceRate) ??
-            'present on class days',
-      ),
-      StatTile(
-        icon: CupertinoIcons.checkmark_seal_fill,
-        color: InsightColors.success.resolveFrom(context),
-        label: 'Check-ins',
-        value: '${data.checkIns}',
-        detail:
-            _countDelta(data.checkIns, data.previousCheckIns) ??
-            '${data.studentsSeen} students',
-      ),
-      StatTile(
-        icon: CupertinoIcons.clock_fill,
-        color: InsightColors.warning.resolveFrom(context),
-        label: 'Late',
-        value: data.lateShare == null ? '–' : _pct(data.lateShare!),
-        detail:
-            _pointsDelta(data.lateShare, data.previousLateShare) ??
-            'of timed check-ins',
-      ),
-      StatTile(
-        icon: CupertinoIcons.bolt_fill,
-        color: CupertinoColors.systemPurple.resolveFrom(context),
-        label: 'Avg. Scan',
-        value: data.averageScanMs == null ? '–' : '${data.averageScanMs} ms',
-        detail: 'capture to record',
-      ),
-    ];
-    return LayoutBuilder(
-      builder: (context, c) {
-        final columns = c.maxWidth >= 720 ? 4 : 2;
-        const gap = 12.0;
-        final w = (c.maxWidth - gap * (columns - 1)) / columns;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [for (final t in tiles) SizedBox(width: w, child: t)],
-        );
-      },
+    return StatStrip(
+      figures: [
+        (
+          label: 'Attendance',
+          value: data.attendanceRate == null ? '–' : _pct(data.attendanceRate!),
+          detail:
+              _pointsDelta(data.attendanceRate, data.previousAttendanceRate) ??
+              'present on class days',
+        ),
+        (
+          label: 'Check-ins',
+          value: '${data.checkIns}',
+          detail:
+              _countDelta(data.checkIns, data.previousCheckIns) ??
+              '${data.studentsSeen} students',
+        ),
+        (
+          label: 'Late',
+          value: data.lateShare == null ? '–' : _pct(data.lateShare!),
+          detail:
+              _pointsDelta(data.lateShare, data.previousLateShare) ??
+              'of timed check-ins',
+        ),
+        (
+          label: 'Avg. Scan',
+          value: data.averageScanMs == null ? '–' : '${data.averageScanMs} ms',
+          detail: 'capture to record',
+        ),
+      ],
     );
   }
 }

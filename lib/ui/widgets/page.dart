@@ -52,7 +52,12 @@ class InsightRootPage extends StatelessWidget {
             leading: leading,
             trailing: trailing,
             border: null,
-            searchField: searchField!,
+            // The bar insets the field by its own edge padding only, not
+            // the safe-area padding that carries the page margin below.
+            searchField: Padding(
+              padding: EdgeInsets.symmetric(horizontal: side),
+              child: searchField,
+            ),
           )
         : CupertinoSliverNavigationBar(
             largeTitle: Text(title),

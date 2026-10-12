@@ -11,6 +11,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'support/test_app.dart';
 
 void main() {
+  test('chart axes step in whole, round numbers', () {
+    expect(
+      [
+        for (final max in [3.0, 7.4, 10.0, 45.0, 303.0, 999.0])
+          niceCeiling(max),
+      ],
+      [4, 8, 20, 80, 400, 1000],
+    );
+  });
+
   final now = DateTime(2026, 9, 27, 18);
   final students = [
     for (final (id, name) in [

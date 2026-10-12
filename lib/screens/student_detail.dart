@@ -129,7 +129,7 @@ class _DetailBody extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                Center(child: _FaceStatusPill(status: status)),
+                Center(child: _FaceStatus(status: status)),
                 if (status != FaceProfileStatus.ready)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
@@ -266,25 +266,25 @@ class _DetailBody extends StatelessWidget {
   }
 }
 
-class _FaceStatusPill extends StatelessWidget {
-  const _FaceStatusPill({required this.status});
+class _FaceStatus extends StatelessWidget {
+  const _FaceStatus({required this.status});
 
   final FaceProfileStatus status;
 
   @override
   Widget build(BuildContext context) {
     return switch (status) {
-      FaceProfileStatus.ready => StatusPill(
+      FaceProfileStatus.ready => StatusLabel(
         label: 'Face profile ready',
         icon: CupertinoIcons.checkmark_seal_fill,
         color: InsightColors.success.resolveFrom(context),
       ),
-      FaceProfileStatus.needsReEnrollment => StatusPill(
+      FaceProfileStatus.needsReEnrollment => StatusLabel(
         label: 'Needs re-enrollment',
         icon: CupertinoIcons.exclamationmark_triangle_fill,
         color: InsightColors.warning.resolveFrom(context),
       ),
-      FaceProfileStatus.missing => StatusPill(
+      FaceProfileStatus.missing => StatusLabel(
         label: 'No face profile',
         icon: CupertinoIcons.person_crop_circle_badge_exclam,
         color: InsightColors.danger.resolveFrom(context),
@@ -392,8 +392,7 @@ class _DestructiveRow extends StatelessWidget {
   }
 }
 
-/// Last seen, days present and total check-ins: three tiles where there's
-/// room, a Contacts-style list on narrow phones.
+/// Last seen, days present and total check-ins.
 class _StatsBlock extends StatelessWidget {
   const _StatsBlock({required this.stats});
 
@@ -401,82 +400,27 @@ class _StatsBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lastSeenDay = stats.lastSeen == null
-        ? '–'
-        : formatLastSeen(stats.lastSeen, stats.now).split(',').first;
-    final accent = InsightColors.accent.resolveFrom(context);
-    final success = InsightColors.success.resolveFrom(context);
-    final purple = CupertinoColors.systemPurple.resolveFrom(context);
-
-    return LayoutBuilder(
-      builder: (context, c) {
-        if (c.maxWidth < 520) {
-          return InsightListSection(
-            children: [
-              InsightRow(
-                leading: SymbolBadge(CupertinoIcons.eye_fill, accent),
-                title: 'Last Seen',
-                value: stats.lastSeen == null
-                    ? 'Never'
-                    : formatLastSeen(stats.lastSeen, stats.now),
-              ),
-              InsightRow(
-                leading: SymbolBadge(CupertinoIcons.calendar, success),
-                title: 'Days Present',
-                subtitle: 'Last 30 days',
-                value: '${stats.daysPresentInLast(30)}',
-              ),
-              InsightRow(
-                leading: SymbolBadge(
-                  CupertinoIcons.checkmark_seal_fill,
-                  purple,
-                ),
-                title: 'Check-ins',
-                subtitle: 'All time',
-                value: '${stats.total}',
-              ),
-            ],
-          );
-        }
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-          child: Row(
-            children: [
-              Expanded(
-                child: StatTile(
-                  icon: CupertinoIcons.eye_fill,
-                  color: accent,
-                  value: lastSeenDay,
-                  label: 'Last Seen',
-                  detail: stats.lastSeen == null
-                      ? 'no check-ins yet'
-                      : formatClock(stats.lastSeen!),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatTile(
-                  icon: CupertinoIcons.calendar,
-                  color: success,
-                  value: '${stats.daysPresentInLast(30)}',
-                  label: 'Days',
-                  detail: 'present, last 30',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatTile(
-                  icon: CupertinoIcons.checkmark_seal_fill,
-                  color: purple,
-                  value: '${stats.total}',
-                  label: 'Check-ins',
-                  detail: 'all time',
-                ),
-              ),
-            ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      child: StatStrip(
+        figures: [
+          (
+            label: 'Last Seen',
+            value: stats.lastSeen == null
+                ? '–'
+                : formatLastSeen(stats.lastSeen, stats.now).split(',').first,
+            detail: stats.lastSeen == null
+                ? 'no check-ins yet'
+                : formatClock(stats.lastSeen!),
           ),
-        );
-      },
+          (
+            label: 'Days Present',
+            value: '${stats.daysPresentInLast(30)}',
+            detail: 'last 30 days',
+          ),
+          (label: 'Check-ins', value: '${stats.total}', detail: 'all time'),
+        ],
+      ),
     );
   }
 }

@@ -145,12 +145,6 @@ class _TodayContent extends StatelessWidget {
           ),
         ),
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: _StatGrid(summary: summary),
-          ),
-        ),
-        SliverToBoxAdapter(
           child: LayoutBuilder(
             builder: (context, c) {
               final missing = _MissingSection(
@@ -346,7 +340,7 @@ class _LiveCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (active != null)
-                      StatusPill(
+                      StatusLabel(
                         label: 'In Session',
                         icon: CupertinoIcons.dot_radiowaves_left_right,
                         color: success,
@@ -481,61 +475,6 @@ class _Figure extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _StatGrid extends StatelessWidget {
-  const _StatGrid({required this.summary});
-
-  final TodaySummary summary;
-
-  @override
-  Widget build(BuildContext context) {
-    final tiles = [
-      StatTile(
-        icon: CupertinoIcons.checkmark_seal_fill,
-        color: InsightColors.success.resolveFrom(context),
-        value: '${summary.checkedInToday}',
-        label: 'Checked In',
-        detail: 'students today',
-      ),
-      StatTile(
-        icon: CupertinoIcons.clock_fill,
-        color: InsightColors.warning.resolveFrom(context),
-        value: '${summary.lateToday}',
-        label: 'Late',
-        detail: 'after the grace period',
-      ),
-      StatTile(
-        icon: CupertinoIcons.person_2_fill,
-        color: InsightColors.accent.resolveFrom(context),
-        value: '${summary.enrolled}',
-        label: 'Enrolled',
-        detail: 'face profiles',
-      ),
-      StatTile(
-        icon: CupertinoIcons.bolt_fill,
-        color: CupertinoColors.systemPurple.resolveFrom(context),
-        value: summary.averageScanMs == null
-            ? '–'
-            : '${summary.averageScanMs} ms',
-        label: 'Avg. Scan',
-        detail: 'capture to record',
-      ),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, c) {
-        final columns = c.maxWidth >= 720 ? 4 : 2;
-        const gap = 12.0;
-        final width = (c.maxWidth - gap * (columns - 1)) / columns;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [for (final t in tiles) SizedBox(width: width, child: t)],
-        );
-      },
     );
   }
 }

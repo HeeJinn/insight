@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
@@ -95,6 +97,31 @@ class CapsuleSegments<T extends Object> extends StatelessWidget {
     final ink = InsightColors.label.resolveFrom(context);
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
+    // Full width on phones; on wide panes it keeps a control's natural
+    // size, as a Mac or iPad segmented control does, instead of a banner.
+    return LayoutBuilder(
+      builder: (context, outer) => Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: outer.maxWidth > 600
+                ? 112.0 * keys.length
+                : outer.maxWidth,
+          ),
+          child: _track(context, keys, index, ink, dark, reduceMotion),
+        ),
+      ),
+    );
+  }
+
+  Widget _track(
+    BuildContext context,
+    List<T> keys,
+    int index,
+    Color ink,
+    bool dark,
+    bool reduceMotion,
+  ) {
     return Container(
       height: 36,
       padding: const EdgeInsets.all(3),
@@ -217,9 +244,10 @@ class FillIconButton extends StatelessWidget {
   }
 }
 
-/// A small rounded-rectangle "pill" for statuses like On time / Late.
-class StatusPill extends StatelessWidget {
-  const StatusPill({
+/// A status like On Time or Late as colored text with an optional symbol,
+/// the way Apple marks state in a row: no badge or capsule behind it.
+class StatusLabel extends StatelessWidget {
+  const StatusLabel({
     super.key,
     required this.label,
     required this.color,
@@ -232,32 +260,25 @@ class StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: ShapeDecoration(
-        shape: const StadiumBorder(),
-        color: color.withValues(alpha: 0.16),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 4),
-          ],
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: InsightText.footnote.copyWith(
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+        ],
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: InsightText.subheadline.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -286,22 +307,22 @@ class InsightCard extends StatelessWidget {
   }
 }
 
-/// Initials in a tinted circle, used where a student has no photo.
+/// Initials on Contacts' gray monogram, used where a student has no photo.
+/// One look for everyone: color by name hash reads as random confetti.
 class InitialsAvatar extends StatelessWidget {
   const InitialsAvatar({super.key, required this.name, this.size = 40});
 
   final String name;
   final double size;
 
-  static const _palette = <CupertinoDynamicColor>[
-    CupertinoColors.systemBlue,
-    CupertinoColors.systemIndigo,
-    CupertinoColors.systemPurple,
-    CupertinoColors.systemTeal,
-    CupertinoColors.systemOrange,
-    CupertinoColors.systemPink,
-    CupertinoColors.systemGreen,
-  ];
+  static const _top = CupertinoDynamicColor.withBrightness(
+    color: Color(0xFFA5ABB8),
+    darkColor: Color(0xFF8E8E93),
+  );
+  static const _bottom = CupertinoDynamicColor.withBrightness(
+    color: Color(0xFF858994),
+    darkColor: Color(0xFF636366),
+  );
 
   String get _initials {
     final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
@@ -313,22 +334,23 @@ class InitialsAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _palette[name.hashCode.abs() % _palette.length].resolveFrom(
-      context,
-    );
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: color.withValues(alpha: 0.18),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_top.resolveFrom(context), _bottom.resolveFrom(context)],
+        ),
       ),
       child: Text(
         _initials,
         style: InsightText.headline.copyWith(
-          color: color,
-          fontSize: size * 0.38,
+          color: CupertinoColors.white,
+          fontSize: size * 0.4,
           letterSpacing: 0,
         ),
       ),
@@ -417,63 +439,88 @@ class _RingPainter extends CustomPainter {
       old.progress != progress || old.color != color;
 }
 
-/// A dashboard figure: a tinted symbol, a large number, and its label.
-class StatTile extends StatelessWidget {
-  const StatTile({
-    super.key,
-    required this.icon,
-    required this.color,
-    required this.value,
-    required this.label,
-    this.detail,
-  });
+/// Headline figures in one card, like the numbers atop Stocks or Health:
+/// a quiet label, a large value and an optional detail, divided by
+/// hairlines. Two per row when the card is too narrow for all of them.
+class StatStrip extends StatelessWidget {
+  const StatStrip({super.key, required this.figures});
 
-  final IconData icon;
-  final Color color;
-  final String value;
-  final String label;
-  final String? detail;
+  final List<({String label, String value, String? detail})> figures;
 
   @override
   Widget build(BuildContext context) {
     final secondary = InsightColors.secondaryLabel.resolveFrom(context);
+    final label = InsightColors.label.resolveFrom(context);
+    final separator = InsightColors.separator.resolveFrom(context);
+
+    Widget figure(({String label, String value, String? detail}) f) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          f.label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: InsightText.footnote.copyWith(
+            color: secondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          f.value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: InsightText.title2.copyWith(
+            color: label,
+            fontFeatures: InsightText.tabular,
+          ),
+        ),
+        Text(
+          f.detail ?? '',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: InsightText.footnote.copyWith(color: secondary),
+        ),
+      ],
+    );
+
     return InsightCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final perRow = c.maxWidth / figures.length >= 112
+              ? figures.length
+              : 2;
+          final rows = [
+            for (var i = 0; i < figures.length; i += perRow)
+              figures.sublist(i, math.min(i + perRow, figures.length)),
+          ];
+          return Column(
             children: [
-              Icon(icon, size: 17, color: color),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: InsightText.subheadline.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w600,
+              for (final (r, row) in rows.indexed) ...[
+                if (r > 0) const SizedBox(height: 16),
+                IntrinsicHeight(
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < perRow; i++) ...[
+                        if (i > 0) Container(width: 0.5, color: separator),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: i < row.length
+                                ? figure(row[i])
+                                : const SizedBox(),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-              ),
+              ],
             ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            maxLines: 1,
-            style: InsightText.title1.copyWith(
-              color: InsightColors.label.resolveFrom(context),
-            ),
-          ),
-          Text(
-            detail ?? '',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: InsightText.footnote.copyWith(color: secondary),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
