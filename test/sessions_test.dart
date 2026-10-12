@@ -55,6 +55,18 @@ void main() {
       );
     });
 
+    test('a class list limits who checks in and sets the headcount', () {
+      expect(mwf.admits('anyone'), isTrue, reason: 'no list: everyone');
+      expect(mwf.headcount(40), 40);
+      expect(mwf.copyWith(expected: 25).headcount(40), 25, reason: 'legacy');
+
+      final listed = mwf.copyWith(studentIds: {'s1', 's2'});
+      expect(listed.admits('s1'), isTrue);
+      expect(listed.admits('s3'), isFalse);
+      expect(listed.copyWith(expected: 25).headcount(40), 2);
+      expect(SessionEntry.fromJson(listed.toJson()).studentIds, {'s1', 's2'});
+    });
+
     test('occurs on its weekdays, or only on its date', () {
       expect(mwf.occursOn(at(28, 9, 0)), isTrue, reason: 'Monday');
       expect(mwf.occursOn(at(29, 9, 0)), isFalse, reason: 'Tuesday');
@@ -124,6 +136,47 @@ void main() {
       data = await TestData.open();
     });
     tearDownAll(() => data.close());
+
+    test(
+      'a rename carries check-ins along unless the title is shared',
+      () async {
+        final original = data.sessions.single;
+        int filedUnder(String title) =>
+            data.attendance.values.where((a) => a.sessionTitle == title).length;
+        final count = filedUnder(original.title);
+        expect(count, greaterThan(0));
+
+        final sessions = FixedSessions([original]);
+        await sessions.updateSession(
+          original.copyWith(title: 'CS 101'),
+          attendance: data.attendance,
+        );
+        expect(filedUnder('CS 101'), count);
+
+        // A one-off still uses "CS 101", so its history stays put.
+        final shared = FixedSessions([
+          original.copyWith(title: 'CS 101'),
+          mwf.copyWith(date: DateTime(2026, 9, 28)),
+        ]);
+        await shared.updateSession(
+          original.copyWith(title: 'Renamed'),
+          attendance: data.attendance,
+        );
+        expect(filedUnder('CS 101'), count);
+
+        // Restore the shared fixture for the screen tests.
+        await sessions.updateSession(original, attendance: data.attendance);
+        expect(filedUnder(original.title), count);
+      },
+    );
+
+    test('deleting a student drops them from class lists', () async {
+      final sessions = FixedSessions([
+        mwf.copyWith(studentIds: {'s1', 's2'}),
+      ]);
+      await sessions.removeStudent('s1');
+      expect(sessions.state.single.studentIds, {'s2'});
+    });
 
     for (final (name, size) in testSizes) {
       testWidgets('Sessions renders without overflow on a $name', (

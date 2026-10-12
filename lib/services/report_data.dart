@@ -201,9 +201,8 @@ class ReportData {
     }
 
     // Presence: on each class day, the share of the class checked in.
-    final expected = session != null && (byTitle[session]?.expected ?? 0) > 0
-        ? byTitle[session]!.expected
-        : students.length;
+    final expected =
+        byTitle[session]?.headcount(students.length) ?? students.length;
     double? rateFor(List<Attendance> records) {
       if (expected == 0) return null;
       final perDay = <DateTime, Set<String>>{};
@@ -258,9 +257,7 @@ class ReportData {
       final avg =
           perDay.values.map((s) => s.length).reduce((a, b) => a + b) /
           perDay.length;
-      final exp = (byTitle[title]?.expected ?? 0) > 0
-          ? byTitle[title]!.expected
-          : students.length;
+      final exp = byTitle[title]?.headcount(students.length) ?? students.length;
       sessionReports.add(
         SessionReport(
           title: title,

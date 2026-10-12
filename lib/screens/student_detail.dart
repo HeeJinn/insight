@@ -238,6 +238,10 @@ class _DetailBody extends StatelessWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
+    final sessions = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(sessionsProvider.notifier);
     final confirmed = await showCupertinoModalPopup<bool>(
       context: context,
       builder: (context) => CupertinoActionSheet(
@@ -262,7 +266,9 @@ class _DetailBody extends StatelessWidget {
     if (confirmed != true) return;
     HapticFeedback.mediumImpact();
     onDeleted?.call();
+    final id = student.id;
     await student.delete();
+    await sessions.removeStudent(id);
   }
 }
 

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/session_entry.dart';
+import '../providers/hive_provider.dart';
 import '../providers/sessions_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/session_clock.dart';
@@ -42,7 +43,7 @@ SessionEntry draftSessionNow(DateTime now) {
 
 enum _Repeat { weekly, once }
 
-enum _Picker { none, date, start, end }
+enum _Picker { none, date, start, end, classList }
 
 class _SessionEditor extends ConsumerStatefulWidget {
   const _SessionEditor({
@@ -62,7 +63,7 @@ class _SessionEditor extends ConsumerStatefulWidget {
 class _SessionEditorState extends ConsumerState<_SessionEditor> {
   late final TextEditingController _title;
   late final TextEditingController _room;
-  late final TextEditingController _expected;
+  late Set<String> _studentIds;
   late _Repeat _repeat;
   late Set<int> _weekdays;
   late DateTime _date;
@@ -80,9 +81,7 @@ class _SessionEditorState extends ConsumerState<_SessionEditor> {
     final now = DateTime.now();
     _title = TextEditingController(text: s?.title ?? '')..addListener(_rebuild);
     _room = TextEditingController(text: s?.room ?? '');
-    _expected = TextEditingController(
-      text: (s?.expected ?? 0) > 0 ? '${s!.expected}' : '',
-    );
+    _studentIds = {...?s?.studentIds};
     _repeat = s?.isOneOff ?? false ? _Repeat.once : _Repeat.weekly;
     // New weekly sessions default to weekdays. A session saved before
     // repeat days existed arrives as every day and keeps that.
@@ -99,7 +98,6 @@ class _SessionEditorState extends ConsumerState<_SessionEditor> {
   void dispose() {
     _title.dispose();
     _room.dispose();
-    _expected.dispose();
     super.dispose();
   }
 
@@ -124,10 +122,12 @@ class _SessionEditorState extends ConsumerState<_SessionEditor> {
       room: _room.text.trim(),
       startMinuteOfDay: _start,
       endMinuteOfDay: _end,
-      expected: int.tryParse(_expected.text.trim()) ?? 0,
+      // Kept for sessions saved before class lists; ignored once one is set.
+      expected: widget.existing?.expected ?? 0,
       weekdays: _repeat == _Repeat.weekly ? _weekdays : SessionEntry.everyDay,
       date: _repeat == _Repeat.once ? _date : null,
       lateAfterMinutes: _lateAfter,
+      studentIds: _studentIds,
     );
   }
 
@@ -138,7 +138,10 @@ class _SessionEditorState extends ConsumerState<_SessionEditor> {
     if (_isNew) {
       await sessions.addSession(session);
     } else {
-      await sessions.updateSession(session);
+      await sessions.updateSession(
+        session,
+        attendance: await ref.read(attendanceBoxProvider.future),
+      );
     }
     HapticFeedback.mediumImpact();
     if (mounted) Navigator.of(context).pop();
@@ -190,10 +193,20 @@ class _SessionEditorState extends ConsumerState<_SessionEditor> {
     setState(() => _picker = _picker == picker ? _Picker.none : picker);
   }
 
+  Widget? _check(bool on) => on
+      ? Icon(
+          CupertinoIcons.checkmark,
+          size: 17,
+          color: InsightColors.accent.resolveFrom(context),
+        )
+      : null;
+
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final existing = widget.existing;
+    final students = [...?ref.watch(studentsBoxProvider).value?.values]
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     final runningNow =
         existing != null &&
         existing.occursOn(now) &&
@@ -351,33 +364,46 @@ class _SessionEditorState extends ConsumerState<_SessionEditor> {
             header: 'Check-in',
             dividerInset: 16,
             footer:
-                'Check-ins after the late cutoff are marked Late. Expected '
-                'students sets the headcount; leave it empty to count '
-                'everyone enrolled.',
+                'Check-ins after the late cutoff are marked Late. Only '
+                'students on the class list can check in; with no list, '
+                'everyone enrolled can.',
             children: [
               _LateAfterRow(
                 value: _lateAfter,
                 onChanged: (v) => setState(() => _lateAfter = v),
               ),
-              InsightRow(
-                title: 'Expected Students',
-                trailing: SizedBox(
-                  width: 80,
-                  child: CupertinoTextField(
-                    controller: _expected,
-                    placeholder: 'All',
-                    decoration: null,
-                    textAlign: TextAlign.end,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    maxLength: 4,
-                    style: InsightText.body.copyWith(
-                      color: InsightColors.secondaryLabel.resolveFrom(context),
-                      fontFeatures: InsightText.tabular,
-                    ),
-                  ),
-                ),
+              _PickerRow(
+                title: 'Class List',
+                value: switch (_studentIds.length) {
+                  0 => 'Everyone',
+                  1 => '1 Student',
+                  final n => '$n Students',
+                },
+                open: _picker == _Picker.classList,
+                onTap: () => _togglePicker(_Picker.classList),
               ),
+              if (_picker == _Picker.classList) ...[
+                InsightRow(
+                  title: 'Everyone Enrolled',
+                  showChevron: false,
+                  trailing: _check(_studentIds.isEmpty),
+                  onTap: () => setState(() => _studentIds = {}),
+                ),
+                for (final s in students)
+                  InsightRow(
+                    leading: InitialsAvatar(name: s.name, size: 30),
+                    title: s.name,
+                    subtitle: s.id,
+                    showChevron: false,
+                    trailing: _check(_studentIds.contains(s.id)),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        if (!_studentIds.remove(s.id)) _studentIds.add(s.id);
+                      });
+                    },
+                  ),
+              ],
             ],
           ),
           if (existing != null) ...[

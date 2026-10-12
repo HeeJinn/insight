@@ -27,6 +27,10 @@ enum ScanEventKind {
 
   /// A face was seen repeatedly but matched nobody.
   unknown,
+
+  /// A recognized student who isn't on the running session's class list.
+  /// Nothing is recorded.
+  notOnClassList,
 }
 
 class ScanEvent {
@@ -255,9 +259,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
         _isStreaming = false;
         return;
       }
-      if (_isProcessing ||
-          controller.value.isTakingPicture ||
-          !_canRecognize) {
+      if (_isProcessing || controller.value.isTakingPicture || !_canRecognize) {
         return;
       }
 
@@ -429,6 +431,12 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
         .firstOrNull;
     final now = DateTime.now();
     final session = activeSessionAt(ref.read(sessionsProvider), now);
+    if (session != null && !session.admits(recognized)) {
+      widget.onEvent(
+        ScanEvent(ScanEventKind.notOnClassList, student: student, at: now),
+      );
+      return;
+    }
     final existing = _existingRecord(recognized, session?.title);
 
     final ScanEvent event;
@@ -537,10 +545,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
 
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) {
-      return _CameraMessage(
-        title: _statusLabel,
-        loading: true,
-      );
+      return _CameraMessage(title: _statusLabel, loading: true);
     }
 
     return Stack(

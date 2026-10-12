@@ -48,8 +48,14 @@ class TodaySummary {
         .toList(growable: false);
 
     final presentIds = activeRecords.map((a) => a.studentId).toSet();
-    final missing = students.where((s) => !presentIds.contains(s.id)).toList()
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    final missing =
+        students
+            .where((s) => !presentIds.contains(s.id))
+            .where((s) => active?.admits(s.id) ?? true)
+            .toList()
+          ..sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+          );
 
     return TodaySummary._(
       now: now,
@@ -83,15 +89,12 @@ class TodaySummary {
   final int enrolled;
   final int? averageScanMs;
 
-  /// Enrolled students without a check-in for the running session.
+  /// Students on the running session's class list (everyone enrolled when
+  /// it has none) without a check-in for it.
   final List<Student> notCheckedIn;
 
   int get presentNow => activeRecords.map((a) => a.studentId).toSet().length;
 
-  /// The session's expected headcount, or everyone enrolled when it has
-  /// none set.
-  int get expectedNow {
-    final expected = active?.expected ?? 0;
-    return expected > 0 ? expected : enrolled;
-  }
+  /// The running session's headcount, or everyone enrolled.
+  int get expectedNow => active?.headcount(enrolled) ?? enrolled;
 }

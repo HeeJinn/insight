@@ -1,14 +1,16 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/attendance.dart';
 import '../models/session_entry.dart';
 
 const _sessionsKey = 'sessions_v1';
 
 final sessionsProvider =
     StateNotifierProvider<SessionsController, List<SessionEntry>>(
-  (ref) => SessionsController()..load(),
-);
+      (ref) => SessionsController()..load(),
+    );
 
 class SessionsController extends StateNotifier<List<SessionEntry>> {
   SessionsController() : super(const []);
@@ -20,11 +22,12 @@ class SessionsController extends StateNotifier<List<SessionEntry>> {
       state = const [];
       return;
     }
-    final list = (jsonDecode(raw) as List)
-        .cast<Map<String, dynamic>>()
-        .map(SessionEntry.fromJson)
-        .toList()
-      ..sort((a, b) => a.startMinuteOfDay.compareTo(b.startMinuteOfDay));
+    final list =
+        (jsonDecode(raw) as List)
+            .cast<Map<String, dynamic>>()
+            .map(SessionEntry.fromJson)
+            .toList()
+          ..sort((a, b) => a.startMinuteOfDay.compareTo(b.startMinuteOfDay));
     state = list;
   }
 
@@ -35,11 +38,41 @@ class SessionsController extends StateNotifier<List<SessionEntry>> {
     await _persist(next);
   }
 
-  /// Replaces the session with the same id.
-  Future<void> updateSession(SessionEntry session) async {
+  /// Replaces the session with the same id. Check-ins are filed by session
+  /// title, so a rename carries them along to the new title in
+  /// [attendance], unless another session still uses the old one (a one-off
+  /// can share a weekly class's title on purpose).
+  Future<void> updateSession(
+    SessionEntry session, {
+    Box<Attendance>? attendance,
+  }) async {
+    final oldTitle = state.where((s) => s.id == session.id).firstOrNull?.title;
+    final next = [for (final s in state) s.id == session.id ? session : s]
+      ..sort((a, b) => a.startMinuteOfDay.compareTo(b.startMinuteOfDay));
+    state = next;
+    await _persist(next);
+
+    if (attendance == null ||
+        oldTitle == null ||
+        oldTitle == session.title ||
+        next.any((s) => s.title == oldTitle)) {
+      return;
+    }
+    for (final r in attendance.values.where(
+      (r) => r.sessionTitle == oldTitle,
+    )) {
+      r.sessionTitle = session.title;
+      await r.save();
+    }
+  }
+
+  /// Drops a deleted student from every class list.
+  Future<void> removeStudent(String studentId) async {
+    if (!state.any((s) => s.studentIds.contains(studentId))) return;
     final next = [
-      for (final s in state) s.id == session.id ? session : s,
-    ]..sort((a, b) => a.startMinuteOfDay.compareTo(b.startMinuteOfDay));
+      for (final s in state)
+        s.copyWith(studentIds: {...s.studentIds}..remove(studentId)),
+    ];
     state = next;
     await _persist(next);
   }

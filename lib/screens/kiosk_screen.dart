@@ -79,9 +79,9 @@ class _KioskScreenState extends ConsumerState<KioskScreen> {
   bool get _usesCommandKey =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
 
-  /// Debug builds only: F7/F8/F9 fake a check-in, a repeat
-  /// check-in and an unknown face, so the result states can be reviewed
-  /// without a camera.
+  /// Debug builds only: F7–F10 fake a check-in, a repeat check-in, an
+  /// unknown face and a student off the class list, so the result states
+  /// can be reviewed without a camera.
   Map<ShortcutActivator, VoidCallback> get _debugShortcuts {
     if (!kDebugMode) return const {};
     ScanEvent fake(ScanEventKind kind) {
@@ -112,6 +112,8 @@ class _KioskScreenState extends ConsumerState<KioskScreen> {
           _onScanEvent(fake(ScanEventKind.alreadyCheckedIn)),
       key(LogicalKeyboardKey.f9): () =>
           _onScanEvent(const ScanEvent(ScanEventKind.unknown)),
+      key(LogicalKeyboardKey.f10): () =>
+          _onScanEvent(fake(ScanEventKind.notOnClassList)),
     };
   }
 
@@ -371,7 +373,8 @@ class _InfoPanel extends StatelessWidget {
               if (!hasSchedule || active != null) ...[
                 _PresentMeter(
                   present: records.map((r) => r.studentId).toSet().length,
-                  expected: active?.expected ?? 0,
+                  // No "of N" without a class list or typed headcount.
+                  expected: active?.headcount(0) ?? 0,
                 ),
                 if (recentCount > 0) ...[
                   const SizedBox(height: 16),
@@ -494,26 +497,33 @@ class _EventView extends StatelessWidget {
     final label = InsightColors.label.resolveFrom(context);
     final secondary = InsightColors.secondaryLabel.resolveFrom(context);
 
-    if (event.kind == ScanEventKind.unknown) {
+    final offList = event.kind == ScanEventKind.notOnClassList;
+    if (event.kind == ScanEventKind.unknown || offList) {
       final warning = InsightColors.warning.resolveFrom(context);
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              CupertinoIcons.person_crop_circle_badge_xmark,
+              offList
+                  ? CupertinoIcons.person_crop_circle_badge_exclam
+                  : CupertinoIcons.person_crop_circle_badge_xmark,
               size: 88,
               color: warning,
             ),
             const SizedBox(height: 18),
             Text(
-              'Face Not Recognized',
+              offList ? 'Not on the Class List' : 'Face Not Recognized',
               textAlign: TextAlign.center,
               style: InsightText.title1.copyWith(color: label),
             ),
             const SizedBox(height: 8),
             Text(
-              'Step closer and look straight at the camera, or see your instructor.',
+              offList
+                  ? '${event.student?.name ?? 'You'} isn\'t listed for '
+                        '${session?.title ?? 'this class'}. Please see your '
+                        'instructor.'
+                  : 'Step closer and look straight at the camera, or see your instructor.',
               textAlign: TextAlign.center,
               style: InsightText.body.copyWith(color: secondary),
             ),

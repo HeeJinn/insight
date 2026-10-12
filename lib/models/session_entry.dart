@@ -21,6 +21,10 @@ class SessionEntry {
   /// Minutes after the start when a check-in stops counting as on time.
   final int lateAfterMinutes;
 
+  /// The class list: who may check in. Empty means everyone enrolled, as
+  /// sessions saved before class lists existed behave.
+  final Set<String> studentIds;
+
   static const int defaultLateAfterMinutes = 15;
   static const Set<int> everyDay = {1, 2, 3, 4, 5, 6, 7};
 
@@ -34,9 +38,22 @@ class SessionEntry {
     this.weekdays = everyDay,
     this.date,
     this.lateAfterMinutes = defaultLateAfterMinutes,
+    this.studentIds = const {},
   });
 
   bool get isOneOff => date != null;
+
+  /// Whether [studentId] belongs in this session.
+  bool admits(String studentId) =>
+      studentIds.isEmpty || studentIds.contains(studentId);
+
+  /// How many students the session expects: its class list, else the
+  /// headcount typed before class lists existed, else [enrolled].
+  int headcount(int enrolled) => studentIds.isNotEmpty
+      ? studentIds.length
+      : expected > 0
+      ? expected
+      : enrolled;
 
   /// Whether the session meets on [day].
   bool occursOn(DateTime day) {
@@ -57,6 +74,7 @@ class SessionEntry {
     DateTime? date,
     bool clearDate = false,
     int? lateAfterMinutes,
+    Set<String>? studentIds,
   }) {
     return SessionEntry(
       id: id,
@@ -68,6 +86,7 @@ class SessionEntry {
       weekdays: weekdays ?? this.weekdays,
       date: clearDate ? null : (date ?? this.date),
       lateAfterMinutes: lateAfterMinutes ?? this.lateAfterMinutes,
+      studentIds: studentIds ?? this.studentIds,
     );
   }
 
@@ -85,6 +104,7 @@ class SessionEntry {
       date: date == null ? null : DateTime.parse(date),
       lateAfterMinutes:
           json['lateAfterMinutes'] as int? ?? defaultLateAfterMinutes,
+      studentIds: {...?(json['studentIds'] as List?)?.cast<String>()},
     );
   }
 
@@ -99,5 +119,6 @@ class SessionEntry {
     if (date != null)
       'date': DateTime(date!.year, date!.month, date!.day).toIso8601String(),
     'lateAfterMinutes': lateAfterMinutes,
+    if (studentIds.isNotEmpty) 'studentIds': (studentIds.toList()..sort()),
   };
 }

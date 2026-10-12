@@ -72,6 +72,25 @@ void main() {
       );
     });
 
+    test('with a class list, only that class counts and is missing', () {
+      final summary = TodaySummary.compute(
+        students: students,
+        sessions: [
+          cs101.copyWith(studentIds: {'s1', 's2'}),
+        ],
+        now: at(9, 40),
+        attendance: [
+          Attendance(
+            studentId: 's1',
+            timestamp: at(9, 5),
+            sessionTitle: 'CS 101',
+          ),
+        ],
+      );
+      expect(summary.expectedNow, 2, reason: 'the list, not the typed 30');
+      expect(summary.notCheckedIn.map((s) => s.id), ['s2']);
+    });
+
     test('between sessions nothing is "now" and everyone is listed', () {
       final summary = TodaySummary.compute(
         students: students,
