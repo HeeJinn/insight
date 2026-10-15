@@ -1,99 +1,112 @@
-# Offline Multi-Platform Biometric Attendance Framework
+<div align="center">
 
-A Flutter thesis prototype that replaces manual classroom roll calls with a fast, non-intrusive, offline facial recognition attendance system. The app includes an Admin Dashboard (registration + analytics + logs), Kiosk Mode (real-time scanning), and thesis-oriented Insights views for evaluation and reporting.
+<img src="logos/export/logo.svg" width="96" alt="Insight logo">
 
-## Features
+# Insight
 
-- **Multi-Platform Support**: Android, iOS, Windows, macOS, Web
-- **Offline Operation**: All ML inference happens locally on device
-- **Fast Recognition**: Target latency < 1 second per face scan
-- **Admin Dashboard**: Guided 5-angle student registration, student management (search/filter/edit/delete), attendance log viewing
-- **Kiosk Mode**: Real-time camera scanning for attendance
-- **Insights Module**: Search by student name/ID, daily coverage metrics, recent check-ins, full logs view — reactively updates as attendance is logged elsewhere (e.g. from a kiosk scan), no manual refresh needed
-- **First-Run Experience**: Tutorial tabs + privacy policy consent flow
+**Roll call in under a second.**
 
-## Tech Stack
+Offline face-recognition attendance. Students look at the kiosk and they're checked in,<br>
+with nothing sent to the cloud.
 
-- **Framework**: Flutter (Dart)
-- **State Management**: flutter_riverpod
-- **Navigation**: go_router
-- **ML Engine**: tflite_flutter (Face Detection + Face Recognition, used for kiosk attendance recognition)
-- **Storage**: hive_ce (offline NoSQL)
-- **Image Processing**: image (Dart native cropping)
-- **Camera**: camera package
-- **Image Picking**: image_picker, file_picker
-- **Micro-interactions**: lottie (success/empty-state animations)
-- **Typeface**: Inter, vendored as a variable font asset (no runtime network dependency)
+![Flutter](https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white)
+![Dart](https://img.shields.io/badge/Dart-0175C2?logo=dart&logoColor=white)
+![On-device TFLite](https://img.shields.io/badge/TFLite-on--device-FF6F00?logo=tensorflow&logoColor=white)
+![Platforms](https://img.shields.io/badge/macOS%20·%20Windows%20·%20Android%20·%20iOS-555?logo=apple&logoColor=white)
 
-## Setup
+</div>
 
-1. Clone the repository
-2. Run `flutter pub get`
-3. Download TFLite models and place in `assets/models/`:
-   - Face Detection Model: Download BlazeFace or UltraFace TFLite model (e.g., from https://github.com/hollance/BlazeFace-PyTorch or similar)
-   - Face Recognition Model: Download MobileFaceNet TFLite model (e.g., from https://github.com/sirius-ai/MobileFaceNet_TF or similar)
-   - Rename to `face_detection.tflite` and `face_recognition.tflite`
-4. Run `flutter pub run build_runner build` (for Hive adapters)
-5. Run the app: `flutter run`
+<br>
 
-## Model Details
+![Insight on a Mac with the kiosk on a phone](docs/mockup/insight-portfolio.png)
 
-- **Face Detection**: Input 320x240x3, Output bounding box [x,y,w,h] normalized
-- **Face Recognition**: Input 112x112x3, Output 128D embedding
+## What it does
 
-Ensure models match these input/output shapes.
+A device beside the classroom door runs **Kiosk** mode. Students walk up, the camera finds a face, and Insight matches it against the faces enrolled on that device. No taps, no sign-in sheet, no network.
 
-## Architecture
+| | |
+|---|---|
+| **Today** | The class in session, who's present or late, and who hasn't shown up yet. |
+| **Attendance** | Every check-in, filterable by student, session and date, with saved filters and CSV export. |
+| **Students** | Guided five-angle enrollment from the camera or photos, plus per-student history. |
+| **Sessions** | The weekly class schedule that decides which class a check-in belongs to. |
+| **Reports** | Attendance rate, lateness and scan speed over 7, 30 or 90 days, or all time, plus who needs follow-up. |
+| **Settings** | Admin lock, backup and restore, and data maintenance. |
 
-### Registration Flow
+![Kiosk, Today and Reports screens](docs/mockup/insight-mockup.png)
 
-1. Admin inputs student details (Name, ID)
-2. Captures 5 baseline photos via a guided capture dialog — a 3-2-1 countdown auto-captures each of the 5 angle slots (no on-device pose estimation, works identically on every supported platform), or photos can be uploaded from the gallery instead
-3. Processes photos through TFLite Detection (crop) and Recognition (embeddings)
-4. Saves baseline embeddings to Hive database
+## How recognition works
 
-### Attendance Flow
+```mermaid
+flowchart LR
+    A[Camera frame] --> B[BlazeFace<br>detect face]
+    B --> C[Align to<br>112×112]
+    C --> D[MobileFaceNet<br>192-d embedding]
+    D --> E{Closest enrolled<br>face under threshold?}
+    E -- yes --> F[Check in]
+    E -- no --> A
+```
 
-1. Live camera feed in Kiosk Mode
-2. TFLite Detection identifies face bounding box
-3. Image package crops face from frame
-4. TFLite Recognition generates live embedding
-5. Calculates distance to stored embeddings
-6. Logs attendance if below threshold
+- **On-device only.** Both TFLite models ship in `assets/models/` and run in a background isolate, so the UI never stalls.
+- **Fast.** Capture to record takes about 200 ms on a laptop.
+- **Careful.** A match must beat the distance threshold *and* be clearly ahead of the next-closest student.
+- **Private.** Student data lives in an encrypted Hive database; the key is kept in the platform's secure storage.
 
-## Performance Optimizations
+## Getting started
 
-- Heavy image processing in Dart Isolates
-- Optimized camera processing loop
-- Lightning-fast Hive storage
-- Cross-platform TFLite inference
+Requires Flutter with Dart `^3.12`.
 
-## Constraints
+```bash
+git clone https://github.com/HeeJinn/insight.git
+cd insight
+flutter pub get
+flutter run
+```
 
-- Strictly offline, no external APIs
-- Multi-platform compatible (no Google ML Kit)
-- Uses isolates for UI thread protection
+The models and generated Hive adapters are already committed. To see every screen without enrolling real faces, start a debug build with sample data:
 
-## Thesis-Oriented System Insights
+```bash
+flutter run --dart-define=INSIGHT_DEMO=true
+```
 
-The prototype now exposes measurable indicators that can be cited in a thesis paper and presentation:
+Run the tests:
 
-- **Adoption / Enrollment Depth**: total registered students and completion of baseline samples.
-- **Operational Throughput**: total attendance logs and daily logs.
-- **Daily Coverage**: percentage of unique students recognized in a day.
-- **Traceability**: searchable logs by student name or ID for audit-ready verification.
-- **Privacy Posture**: explicit first-run consent and local-only storage workflow.
+```bash
+flutter test
+```
 
-These indicators are visible in-app (Admin/Insights) and can be mapped to evaluation criteria such as usability, responsiveness, reliability, and deployment feasibility.
+If you change a Hive model in `lib/models/`, regenerate its adapter:
 
-## Design System
+```bash
+dart run build_runner build
+```
 
-The UI follows an Apple HIG-inspired direction layered on top of Flutter Material, consolidated into a single set of tokens and shared components rather than screen-by-screen styling:
+## Project layout
 
-- **Tokens**: `context.appColors` / `context.appDecorations` (`lib/app_theme.dart`) are the single source of truth for color across light and dark mode — screens should never hardcode hex colors. Typography goes through `AppleTypography` (`lib/core/theme/apple_theme.dart`).
-- **Shared components** (`lib/core/widgets/`): `AppIconBadge`, `AppAsyncView`/`AppAsyncView.combine2` (Hive-box async loading/error/data states), `AppDialog`, `AppSearchField` (an iOS-style search bar with a centered idle state and a sliding Cancel action).
-- **Apple-chrome primitives** (`lib/widgets/apple_chrome.dart`): `AppleInsetGroupedSection`, `AppleListRow`, `AppleTactileButton` for grouped list-style content; `lib/widgets/app_chrome.dart`'s `AppPanel` for freeform/hero blocks.
-- **Navigation**: `AppDock` (`lib/widgets/app_dock.dart`) is a custom bottom nav bar — inactive tabs are icon-only, the active tab expands into a labeled pill.
-- **Micro-interactions**: Lottie animations for success confirmations and empty states (`assets/animations/`).
-- Responsive behavior is designed for portrait and landscape using bounded layouts and scroll-safe content containers, with breakpoints centralized in `lib/widgets/responsive_utils.dart`.
-- Admin flows are organized into clear tabs: Enrollment, Logs.
+```
+lib/
+├── screens/     Today, Attendance, Students, Sessions, Reports, Settings, Kiosk
+├── services/    face pipeline, live tracking, reports, CSV export, backup
+├── providers/   Riverpod state: Hive boxes, sessions, settings, admin lock
+├── models/      Student, Attendance, SessionEntry
+├── ui/          theme, glass tab bar, adaptive shell, shared widgets
+└── widgets/     camera scanner, face overlay, guided capture
+```
+
+## Built with
+
+[Flutter](https://flutter.dev) ·
+[Riverpod](https://riverpod.dev) ·
+[go_router](https://pub.dev/packages/go_router) ·
+[tflite_flutter](https://pub.dev/packages/tflite_flutter) ·
+[Hive CE](https://pub.dev/packages/hive_ce) ·
+[camera](https://pub.dev/packages/camera) ·
+[Lottie](https://pub.dev/packages/lottie) ·
+[Inter](https://rsms.me/inter/)
+
+Google ML Kit draws the live face overlay on Android and iOS. It only affects what's drawn on screen; recognition is always TFLite.
+
+<div align="center">
+<br>
+<sub>Built as a thesis prototype.</sub>
+</div>
