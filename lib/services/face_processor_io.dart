@@ -489,9 +489,17 @@ class _FaceWorker {
 Future<void> _faceWorkerMain(_WorkerInit init) async {
   final _FacePipeline pipeline;
   try {
+    // TFLite's default runs XNNPACK on a single thread.
+    InterpreterOptions options() => InterpreterOptions()..threads = 4;
     pipeline = _FacePipeline(
-      Interpreter.fromBuffer(init.detectionModel.materialize().asUint8List()),
-      Interpreter.fromBuffer(init.recognitionModel.materialize().asUint8List()),
+      Interpreter.fromBuffer(
+        init.detectionModel.materialize().asUint8List(),
+        options: options(),
+      ),
+      Interpreter.fromBuffer(
+        init.recognitionModel.materialize().asUint8List(),
+        options: options(),
+      ),
     );
   } catch (e) {
     init.replyPort.send(_WorkerInitError('Could not load face models: $e'));

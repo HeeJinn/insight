@@ -95,7 +95,7 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
   static const Duration _recognitionCooldown = Duration(seconds: 2);
   static const Duration _resultHold = Duration(seconds: 3);
   static const Duration _streamScanInterval = Duration(milliseconds: 220);
-  static const Duration _snapshotScanInterval = Duration(milliseconds: 1150);
+  static const Duration _snapshotScanInterval = Duration(milliseconds: 500);
   Timer? _snapshotTicker;
   Timer? _resetTimer;
 
@@ -178,9 +178,11 @@ class _CameraScannerState extends ConsumerState<CameraScanner>
         orElse: () => cameras.first,
       );
 
+      // Same preset as enrollment, so live faces have the pixels the
+      // baselines were taken with (low is 320x240 on Android).
       final controller = CameraController(
         frontCamera,
-        _usesSnapshotScanning ? ResolutionPreset.medium : ResolutionPreset.low,
+        ResolutionPreset.medium,
         enableAudio: false,
       );
 
