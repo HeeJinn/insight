@@ -689,16 +689,24 @@ class _FacePipeline {
 
   _Detection? _detect(img.Image image) {
     final size = _detSize;
+    // Letterbox: keep the aspect ratio and pad to a square with black, as
+    // BlazeFace expects; stretching the frame distorts faces and landmarks.
+    final scale = size / math.max(image.width, image.height);
+    final rw = math.max(1, (image.width * scale).round());
+    final rh = math.max(1, (image.height * scale).round());
+    final padX = (size - rw) ~/ 2;
+    final padY = (size - rh) ~/ 2;
     final resized = img.copyResize(
       image,
-      width: size,
-      height: size,
+      width: rw,
+      height: rh,
       interpolation: img.Interpolation.linear,
     );
-    final input = Float32List(size * size * 3);
-    var i = 0;
-    for (var y = 0; y < size; y++) {
-      for (var x = 0; x < size; x++) {
+    final input = Float32List(size * size * 3)
+      ..fillRange(0, size * size * 3, -1);
+    for (var y = 0; y < rh; y++) {
+      var i = ((y + padY) * size + padX) * 3;
+      for (var x = 0; x < rw; x++) {
         final p = resized.getPixel(x, y);
         input[i++] = p.r / 127.5 - 1.0;
         input[i++] = p.g / 127.5 - 1.0;
@@ -719,17 +727,21 @@ class _FacePipeline {
       return null;
     }
 
+    // Outputs are normalized to the padded square; map them back to the
+    // image.
+    double toX(double u) => (u * size - padX) / rw;
+    double toY(double v) => (v * size - padY) / rh;
     final anchor = _anchors[best];
     final r = best * 16;
-    final cx = regressors[r] / size + anchor.x;
-    final cy = regressors[r + 1] / size + anchor.y;
-    final w = regressors[r + 2] / size;
-    final h = regressors[r + 3] / size;
+    final cx = toX(regressors[r] / size + anchor.x);
+    final cy = toY(regressors[r + 1] / size + anchor.y);
+    final w = regressors[r + 2] / rw;
+    final h = regressors[r + 3] / rh;
     final keypoints = <math.Point<double>>[
       for (var k = 0; k < 6; k++)
         math.Point(
-          regressors[r + 4 + 2 * k] / size + anchor.x,
-          regressors[r + 5 + 2 * k] / size + anchor.y,
+          toX(regressors[r + 4 + 2 * k] / size + anchor.x),
+          toY(regressors[r + 5 + 2 * k] / size + anchor.y),
         ),
     ];
 
