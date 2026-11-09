@@ -11,6 +11,7 @@ import '../services/session_clock.dart';
 import '../services/student_stats.dart';
 import '../ui/insight_ui.dart';
 import 'enroll_student_screen.dart';
+import 'student_fields.dart';
 
 /// A student's card: identity, face-profile status, attendance, and the
 /// actions an admin takes on them. Shown beside the roster on wide windows
@@ -137,6 +138,44 @@ class _DetailBody extends StatelessWidget {
                   ),
                 _StatsBlock(stats: stats),
                 InsightListSection(
+                  header: 'Details',
+                  dividerInset: 16,
+                  children: [
+                    InsightRow(
+                      title: 'Program',
+                      value: student.program ?? 'Not set',
+                      onTap: () async {
+                        final p = await pickProgram(context, student.program);
+                        if (p != null && p != student.program) {
+                          student.program = p;
+                          await student.save();
+                        }
+                      },
+                    ),
+                    InsightRow(
+                      title: 'Year Level',
+                      value: student.yearLevel == null
+                          ? 'Not set'
+                          : yearLevelLabel(student.yearLevel!),
+                      onTap: () async {
+                        final y = await pickYearLevel(
+                          context,
+                          student.yearLevel,
+                        );
+                        if (y != null && y != student.yearLevel) {
+                          student.yearLevel = y;
+                          await student.save();
+                        }
+                      },
+                    ),
+                    InsightRow(
+                      title: 'Section',
+                      value: student.section ?? 'None',
+                      onTap: () => _editSection(context),
+                    ),
+                  ],
+                ),
+                InsightListSection(
                   header: 'Recent Check-ins',
                   dividerInset: 16,
                   children: recent.isEmpty
@@ -198,19 +237,59 @@ class _DetailBody extends StatelessWidget {
   }
 
   Future<void> _editName(BuildContext context) async {
-    final controller = TextEditingController(text: student.name);
+    final name = await _promptText(
+      context,
+      title: 'Edit Name',
+      placeholder: 'Full Name',
+      initial: student.name,
+      capitalization: TextCapitalization.words,
+    );
+    if (name != null && name.isNotEmpty && name != student.name) {
+      student.name = name;
+      await student.save();
+    }
+  }
+
+  Future<void> _editSection(BuildContext context) async {
+    final text = await _promptText(
+      context,
+      title: 'Section',
+      placeholder: 'Section (optional)',
+      initial: student.section ?? '',
+      capitalization: TextCapitalization.characters,
+      maxLength: 10,
+    );
+    if (text == null) return;
+    final section = cleanSection(text);
+    if (section != student.section) {
+      student.section = section;
+      await student.save();
+    }
+  }
+
+  /// The trimmed text, or null when cancelled.
+  Future<String?> _promptText(
+    BuildContext context, {
+    required String title,
+    required String placeholder,
+    required String initial,
+    required TextCapitalization capitalization,
+    int? maxLength,
+  }) async {
+    final controller = TextEditingController(text: initial);
     final saved = await showCupertinoDialog<bool>(
       context: context,
       barrierDismissible: true,
       builder: (context) => CupertinoAlertDialog(
-        title: const Text('Edit Name'),
+        title: Text(title),
         content: Padding(
           padding: const EdgeInsets.only(top: 12),
           child: CupertinoTextField(
             controller: controller,
             autofocus: true,
-            placeholder: 'Full Name',
-            textCapitalization: TextCapitalization.words,
+            placeholder: placeholder,
+            textCapitalization: capitalization,
+            maxLength: maxLength,
             textInputAction: TextInputAction.done,
             clearButtonMode: OverlayVisibilityMode.editing,
             onSubmitted: (_) => Navigator.of(context).pop(true),
@@ -229,12 +308,9 @@ class _DetailBody extends StatelessWidget {
         ],
       ),
     );
-    final name = controller.text.trim();
+    final text = controller.text.trim();
     controller.dispose();
-    if (saved == true && name.isNotEmpty && name != student.name) {
-      student.name = name;
-      await student.save();
-    }
+    return saved == true ? text : null;
   }
 
   Future<void> _confirmDelete(BuildContext context) async {

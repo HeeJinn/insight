@@ -418,6 +418,7 @@ class _DataSection extends ConsumerWidget {
       records,
       namesById: {for (final s in students.values) s.id: s.name},
       sessionsByTitle: {for (final s in sessions) s.title: s},
+      studentsById: {for (final s in students.values) s.id: s},
     );
     final now = DateTime.now();
     String two(int n) => n.toString().padLeft(2, '0');

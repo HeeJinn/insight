@@ -246,6 +246,10 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
       records,
       namesById: namesById,
       sessionsByTitle: sessionsByTitle,
+      studentsById: {
+        for (final s in [...?ref.read(studentsBoxProvider).value?.values])
+          s.id: s,
+      },
     );
     final now = DateTime.now();
     String two(int n) => n.toString().padLeft(2, '0');

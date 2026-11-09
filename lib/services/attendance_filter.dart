@@ -1,5 +1,6 @@
 import '../models/attendance.dart';
 import '../models/session_entry.dart';
+import '../models/student.dart';
 import 'session_clock.dart';
 import 'student_id.dart';
 
@@ -217,6 +218,7 @@ String attendanceCsv(
   List<Attendance> records, {
   required Map<String, String> namesById,
   required Map<String, SessionEntry> sessionsByTitle,
+  Map<String, Student> studentsById = const {},
 }) {
   String cell(String v) => '"${v.replaceAll('"', '""')}"';
   String two(int n) => n.toString().padLeft(2, '0');
@@ -229,6 +231,9 @@ String attendanceCsv(
       'time',
       'student_id',
       'student_name',
+      'program',
+      'year_level',
+      'section',
       'session',
       'room',
       'status',
@@ -242,6 +247,9 @@ String attendanceCsv(
         '${two(r.timestamp.hour)}:${two(r.timestamp.minute)}:${two(r.timestamp.second)}',
         r.studentId,
         namesById[r.studentId] ?? '',
+        studentsById[r.studentId]?.program ?? '',
+        studentsById[r.studentId]?.yearLevel?.toString() ?? '',
+        studentsById[r.studentId]?.section ?? '',
         r.sessionTitle ?? '',
         r.room ?? '',
         statusLabel(

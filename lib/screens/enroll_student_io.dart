@@ -14,10 +14,11 @@ import '../services/face_processor.dart';
 import '../services/student_id.dart';
 import '../ui/insight_ui.dart';
 import '../widgets/guided_face_capture_io.dart';
+import 'student_fields.dart';
 
 enum _Step { details, face, saving, done }
 
-/// Full-screen enrollment: name and ID, then the guided five-angle face
+/// Full-screen enrollment: name, ID, program and year, then the guided five-angle face
 /// capture, then the face profile is built and saved. With [student] set
 /// it re-enrolls that student's face and skips the details step.
 class EnrollStudentScreen extends ConsumerStatefulWidget {
@@ -33,7 +34,10 @@ class EnrollStudentScreen extends ConsumerStatefulWidget {
 class _EnrollStudentScreenState extends ConsumerState<EnrollStudentScreen> {
   final _name = TextEditingController();
   final _id = TextEditingController();
+  final _section = TextEditingController();
   final _idFocus = FocusNode();
+  String? _program;
+  int? _yearLevel;
   late _Step _step = widget.student == null ? _Step.details : _Step.face;
   String? _detailsError;
   String? _savedName;
@@ -51,6 +55,7 @@ class _EnrollStudentScreenState extends ConsumerState<EnrollStudentScreen> {
   void dispose() {
     _name.dispose();
     _id.dispose();
+    _section.dispose();
     _idFocus.dispose();
     super.dispose();
   }
@@ -60,7 +65,20 @@ class _EnrollStudentScreenState extends ConsumerState<EnrollStudentScreen> {
   }
 
   bool get _detailsReady =>
-      _name.text.trim().isNotEmpty && _id.text.trim().isNotEmpty;
+      _name.text.trim().isNotEmpty &&
+      _id.text.trim().isNotEmpty &&
+      _program != null &&
+      _yearLevel != null;
+
+  Future<void> _chooseProgram() async {
+    final p = await pickProgram(context, _program);
+    if (p != null) setState(() => _program = p);
+  }
+
+  Future<void> _chooseYearLevel() async {
+    final y = await pickYearLevel(context, _yearLevel);
+    if (y != null) setState(() => _yearLevel = y);
+  }
 
   Future<void> _continueFromDetails() async {
     if (!_detailsReady) return;
@@ -120,6 +138,9 @@ class _EnrollStudentScreenState extends ConsumerState<EnrollStudentScreen> {
           name: _name.text.trim(),
           embeddings: embeddings,
           enrolledAt: DateTime.now(),
+          program: _program,
+          yearLevel: _yearLevel,
+          section: cleanSection(_section.text),
         );
         await box.put(student.id, student);
         _savedName = student.name;
@@ -234,6 +255,8 @@ class _EnrollStudentScreenState extends ConsumerState<EnrollStudentScreen> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  /// Keeps program, year and section, since a class is usually enrolled
+  /// together.
   void _enrollAnother() {
     _name.clear();
     _id.clear();
@@ -251,6 +274,11 @@ class _EnrollStudentScreenState extends ConsumerState<EnrollStudentScreen> {
         name: _name,
         id: _id,
         idFocus: _idFocus,
+        section: _section,
+        program: _program,
+        yearLevel: _yearLevel,
+        onPickProgram: _chooseProgram,
+        onPickYearLevel: _chooseYearLevel,
         error: _detailsError,
         ready: _detailsReady,
         onContinue: _continueFromDetails,
@@ -319,6 +347,11 @@ class _DetailsStep extends StatelessWidget {
     required this.name,
     required this.id,
     required this.idFocus,
+    required this.section,
+    required this.program,
+    required this.yearLevel,
+    required this.onPickProgram,
+    required this.onPickYearLevel,
     required this.error,
     required this.ready,
     required this.onContinue,
@@ -327,6 +360,11 @@ class _DetailsStep extends StatelessWidget {
   final TextEditingController name;
   final TextEditingController id;
   final FocusNode idFocus;
+  final TextEditingController section;
+  final String? program;
+  final int? yearLevel;
+  final VoidCallback onPickProgram;
+  final VoidCallback onPickYearLevel;
   final String? error;
   final bool ready;
   final VoidCallback onContinue;
@@ -408,13 +446,46 @@ class _DetailsStep extends StatelessWidget {
                           ),
                           autocorrect: false,
                           enableSuggestions: false,
-                          textInputAction: TextInputAction.go,
+                          textInputAction: TextInputAction.done,
                           clearButtonMode: OverlayVisibilityMode.editing,
-                          onSubmitted: (_) => onContinue(),
                         ),
                       ],
                     ),
                   ),
+                ),
+                InsightListSection(
+                  margin: EdgeInsets.zero,
+                  dividerInset: 16,
+                  children: [
+                    InsightRow(
+                      title: 'Program',
+                      value: program ?? 'Choose',
+                      onTap: onPickProgram,
+                    ),
+                    InsightRow(
+                      title: 'Year Level',
+                      value: yearLevel == null
+                          ? 'Choose'
+                          : yearLevelLabel(yearLevel!),
+                      onTap: onPickYearLevel,
+                    ),
+                    CupertinoTextField(
+                      controller: section,
+                      placeholder: 'Section (optional)',
+                      decoration: null,
+                      maxLength: 10,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 15,
+                      ),
+                      textCapitalization: TextCapitalization.characters,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      textInputAction: TextInputAction.go,
+                      clearButtonMode: OverlayVisibilityMode.editing,
+                      onSubmitted: (_) => onContinue(),
+                    ),
+                  ],
                 ),
                 if (error != null)
                   Padding(

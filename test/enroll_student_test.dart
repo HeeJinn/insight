@@ -35,7 +35,7 @@ void main() {
     });
   }
 
-  testWidgets('Continue waits for both fields and rejects a taken ID', (
+  testWidgets('Continue waits for the required fields and rejects a taken ID', (
     tester,
   ) async {
     await pumpScreen(
@@ -50,6 +50,19 @@ void main() {
     await tester.enterText(fields.at(0), 'New Person');
     await tester.pump();
     expect(continueButton(tester).onPressed, isNull);
+
+    Future<void> choose(String row, String option) async {
+      await tester.ensureVisible(find.text(row));
+      await tester.tap(find.text(row));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(option));
+      await tester.pumpAndSettle();
+    }
+
+    await choose('Program', 'BS Nursing');
+    expect(find.text('BS Nursing'), findsOneWidget);
+    await choose('Year Level', '2nd Year');
+    expect(find.text('2nd Year'), findsOneWidget);
 
     // Letters are dropped and dashes added; a short ID can't continue.
     await tester.enterText(fields.at(1), 's03');

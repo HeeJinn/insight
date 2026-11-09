@@ -148,7 +148,8 @@ List<Student> _filterAndSort(
     final matches =
         q.isEmpty ||
         s.name.toLowerCase().contains(q) ||
-        matchesStudentId(s.id, q);
+        matchesStudentId(s.id, q) ||
+        (s.groupLabel?.toLowerCase().contains(q) ?? false);
     final attention =
         !needsAttentionOnly || faceProfileStatus(s) != FaceProfileStatus.ready;
     return matches && attention;
@@ -313,7 +314,7 @@ class _RosterList extends StatelessWidget {
       title: 'Students',
       trailing: trailing,
       searchField: CupertinoSearchTextField(
-        placeholder: 'Name or ID',
+        placeholder: 'Name, ID or program',
         onChanged: onQuery,
       ),
       slivers: slivers,

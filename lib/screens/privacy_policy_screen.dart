@@ -61,8 +61,9 @@ class PrivacyPolicyScreen extends ConsumerWidget {
                             color: CupertinoColors.systemBlue,
                             title: 'Local Student Profiles',
                             detail:
-                                'Face profiles (numeric embeddings, not photos) '
-                                'and names are saved in this device\'s storage.',
+                                'Face profiles (numeric embeddings, not photos), '
+                                'names, programs, year levels and sections are '
+                                'saved in this device\'s storage.',
                           ),
                           _PolicyRow(
                             icon: CupertinoIcons.checkmark_seal_fill,

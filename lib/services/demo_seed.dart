@@ -89,7 +89,15 @@ final demoSeedProvider = FutureProvider<void>((ref) async {
       );
       await students.put(
         id,
-        Student(id: id, name: names[i], embeddings: [placeholder]),
+        Student(
+          id: id,
+          name: names[i],
+          embeddings: [placeholder],
+          // Two demo sections, so grouped class lists have something to show.
+          program: 'BS Computer Science',
+          yearLevel: 3,
+          section: i.isEven ? 'A' : 'B',
+        ),
       );
     }
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:insight/models/attendance.dart';
 import 'package:insight/models/session_entry.dart';
+import 'package:insight/models/student.dart';
 import 'package:insight/providers/saved_filters_provider.dart';
 import 'package:insight/screens/attendance_filter_sheet.dart';
 import 'package:insight/screens/attendance_screen.dart';
@@ -132,19 +133,30 @@ void main() {
       records.take(2).toList(),
       namesById: names,
       sessionsByTitle: sessions,
+      studentsById: {
+        's1': Student(
+          id: 's1',
+          name: 'Maria Santos',
+          embeddings: [],
+          program: 'BS Nursing',
+          yearLevel: 2,
+          section: 'B',
+        ),
+      },
     );
     final lines = csv.trim().split('\r\n');
     expect(
       lines.first,
-      'date,time,student_id,student_name,session,room,status,scan_ms,'
-      'match_distance,match_margin',
+      'date,time,student_id,student_name,program,year_level,section,session,'
+      'room,status,scan_ms,match_distance,match_margin',
     );
     expect(
       lines[1],
-      '"2026-09-27","09:05:00","s1","Maria Santos","CS 101","204","On time","300",'
-      '"0.4213",""',
+      '"2026-09-27","09:05:00","s1","Maria Santos","BS Nursing","2","B",'
+      '"CS 101","204","On time","300","0.4213",""',
     );
-    expect(lines[2], contains('"John ""JD"" Cruz, Jr."'));
+    // A student with none of the fields gets blank cells.
+    expect(lines[2], contains('"John ""JD"" Cruz, Jr.","","","",'));
     expect(lines[2], endsWith('"Late","","",""'));
   });
 

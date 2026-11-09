@@ -39,6 +39,9 @@ class Backup {
           'name': s.name,
           'embeddings': s.embeddings,
           'enrolledAt': ?s.enrolledAt?.toIso8601String(),
+          'program': ?s.program,
+          'yearLevel': ?s.yearLevel,
+          'section': ?s.section,
         },
     ],
     'attendance': [
@@ -91,6 +94,9 @@ class Backup {
             enrolledAt: s['enrolledAt'] == null
                 ? null
                 : DateTime.parse(s['enrolledAt'] as String),
+            program: s['program'] as String?,
+            yearLevel: s['yearLevel'] as int?,
+            section: s['section'] as String?,
           ),
       ];
       if (students.any((s) => s.id.trim().isEmpty) ||

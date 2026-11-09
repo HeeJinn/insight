@@ -20,6 +20,9 @@ void main() {
           [0.25, -0.5],
         ],
         enrolledAt: DateTime(2026, 9, 1, 8),
+        program: 'BS Nursing',
+        yearLevel: 2,
+        section: 'B',
       ),
     ],
     attendance: [
@@ -57,6 +60,10 @@ void main() {
       [0.25, -0.5],
     ]);
     expect(back.students.single.enrolledAt, DateTime(2026, 9, 1, 8));
+    expect(
+      back.students.single.groupLabel,
+      'BS Nursing · 2nd Year · Section B',
+    );
     final first = back.attendance.first;
     expect(first.sessionTitle, 'CS 101');
     expect(first.matchDistance, 0.42);

@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:insight/models/session_entry.dart';
+import 'package:insight/models/student.dart';
 import 'package:insight/providers/sessions_provider.dart';
 import 'package:insight/screens/session_editor.dart';
 import 'package:insight/screens/sessions_screen.dart';
@@ -263,6 +264,65 @@ void main() {
       expect(saved.weekdays, {2, 4});
       expect(saved.isOneOff, isFalse);
       expect(find.text('New Session'), findsNothing, reason: 'sheet closed');
+    });
+
+    testWidgets('a section row adds and removes the whole section', (
+      tester,
+    ) async {
+      const label = 'BS Nursing · 2nd Year · Section B';
+      await tester.runAsync(
+        () => data.students.putAll({
+          for (final id in ['n1', 'n2'])
+            id: Student(
+              id: id,
+              name: 'Nurse $id',
+              embeddings: [],
+              program: 'BS Nursing',
+              yearLevel: 2,
+              section: 'B',
+            ),
+        }),
+      );
+      addTearDown(
+        () => tester.runAsync(() => data.students.deleteAll(['n1', 'n2'])),
+      );
+      await pumpScreen(
+        tester,
+        data: data,
+        size: const Size(390, 844),
+        home: const _EditorHost(),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(CupertinoTextField).first, 'Anatomy');
+
+      Future<void> tapRow(String text) async {
+        // Centered, so the glass navigation bar doesn't cover it.
+        await Scrollable.ensureVisible(
+          tester.element(find.text(text)),
+          alignment: 0.5,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(text));
+        await tester.pumpAndSettle();
+      }
+
+      await tapRow('Class List');
+      await tapRow(label);
+      expect(find.text('2 Students'), findsOneWidget);
+      await tapRow(label);
+      expect(find.text('Everyone'), findsOneWidget);
+      await tapRow(label);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(_EditorHost)),
+      );
+      final saved = container
+          .read(sessionsProvider)
+          .firstWhere((s) => s.title == 'Anatomy');
+      expect(saved.studentIds, {'n1', 'n2'});
     });
 
     testWidgets('Start Now drafts a one-time session from now', (tester) async {

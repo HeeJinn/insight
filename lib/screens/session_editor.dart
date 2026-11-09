@@ -207,6 +207,15 @@ class _SessionEditorState extends ConsumerState<_SessionEditor> {
     final existing = widget.existing;
     final students = [...?ref.watch(studentsBoxProvider).value?.values]
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    // Program, year and section groups, so a whole class joins in one tap.
+    final groups = <String, Set<String>>{
+      for (final s in students)
+        if (s.groupLabel != null) s.groupLabel!: {},
+    };
+    for (final s in students) {
+      groups[s.groupLabel]?.add(s.id);
+    }
+    final groupNames = groups.keys.toList()..sort();
     final runningNow =
         existing != null &&
         existing.occursOn(now) &&
@@ -389,6 +398,28 @@ class _SessionEditorState extends ConsumerState<_SessionEditor> {
                   trailing: _check(_studentIds.isEmpty),
                   onTap: () => setState(() => _studentIds = {}),
                 ),
+                for (final g in groupNames)
+                  InsightRow(
+                    leading: SymbolBadge(
+                      CupertinoIcons.person_3_fill,
+                      InsightColors.accent.resolveFrom(context),
+                    ),
+                    title: g,
+                    subtitle: groups[g]!.length == 1
+                        ? '1 student'
+                        : '${groups[g]!.length} students',
+                    showChevron: false,
+                    trailing: _check(_studentIds.containsAll(groups[g]!)),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      final ids = groups[g]!;
+                      setState(() {
+                        _studentIds = _studentIds.containsAll(ids)
+                            ? _studentIds.difference(ids)
+                            : _studentIds.union(ids);
+                      });
+                    },
+                  ),
                 for (final s in students)
                   InsightRow(
                     leading: InitialsAvatar(name: s.name, size: 30),

@@ -23,13 +23,16 @@ class StudentAdapter extends TypeAdapter<Student> {
           .map((e) => (e as List).cast<double>())
           .toList(),
       enrolledAt: fields[3] as DateTime?,
+      program: fields[4] as String?,
+      yearLevel: (fields[5] as num?)?.toInt(),
+      section: fields[6] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Student obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -37,7 +40,13 @@ class StudentAdapter extends TypeAdapter<Student> {
       ..writeByte(2)
       ..write(obj.embeddings)
       ..writeByte(3)
-      ..write(obj.enrolledAt);
+      ..write(obj.enrolledAt)
+      ..writeByte(4)
+      ..write(obj.program)
+      ..writeByte(5)
+      ..write(obj.yearLevel)
+      ..writeByte(6)
+      ..write(obj.section);
   }
 
   @override
