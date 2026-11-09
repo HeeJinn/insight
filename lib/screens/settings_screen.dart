@@ -431,7 +431,8 @@ class _DataSection extends ConsumerWidget {
     } catch (e) {
       error = e;
     }
-    if (!context.mounted) return;
+    // Null with no error means the user cancelled the save dialog.
+    if (!context.mounted || (location == null && error == null)) return;
     await _alert(
       context,
       error == null

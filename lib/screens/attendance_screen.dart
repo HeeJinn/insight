@@ -259,7 +259,8 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
     } catch (e) {
       error = e;
     }
-    if (!mounted) return;
+    // Null with no error means the user cancelled the save dialog.
+    if (!mounted || (location == null && error == null)) return;
     await showCupertinoDialog<void>(
       context: context,
       barrierDismissible: true,
